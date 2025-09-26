@@ -1,0 +1,303 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* India Sweet House - Vibrant Sweets & Celebrations Design System */
+
+@layer base {
+  :root {
+    /* Base Background & Surface Colors - Warm, inviting */
+    --background: 45 20% 98%;
+    --foreground: 25 15% 20%;
+    
+    /* Card & Container Colors - Pure white with warm undertones */
+    --card: 0 0% 100%;
+    --card-foreground: 25 15% 20%;
+    
+    /* Interactive Elements */
+    --popover: 0 0% 100%;
+    --popover-foreground: 25 15% 20%;
+    
+    /* Primary Brand Colors - Vibrant sweets-inspired palette */
+    --primary: 15 85% 55%; /* Warm orange-red like jalebi */
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 15 90% 65%;
+    --primary-dark: 15 80% 45%;
+    
+    /* Secondary Colors - Rich natural browns */
+    --secondary: 30 25% 35%; /* Deep chocolate brown */
+    --secondary-foreground: 0 0% 100%;
+    --secondary-light: 30 20% 85%;
+    
+    /* Muted Colors - Soft, natural tones */
+    --muted: 45 15% 95%;
+    --muted-foreground: 25 15% 40%;
+    
+    /* Accent Colors - Festive variety */
+    --accent: 45 85% 60%; /* Bright gold */
+    --accent-foreground: 25 15% 20%;
+    --accent-light: 45 70% 80%;
+    
+    /* Vibrant Sweets Color Palette */
+    --sweet-red: 15 85% 55%; /* Jalebi orange-red */
+    --sweet-yellow: 45 90% 65%; /* Mithai yellow */
+    --sweet-green: 120 40% 50%; /* Pistachio green */
+    --sweet-purple: 280 60% 55%; /* Kulfi purple */
+    --sweet-orange: 25 85% 60%; /* Carrot halwa orange */
+    --sweet-brown: 30 40% 40%; /* Chocolate brown */
+    --sweet-cream: 45 30% 90%; /* Milk cream */
+    
+    /* Natural Earth Tones */
+    --earth-green: 120 30% 45%; /* Fresh mint green */
+    --earth-brown: 25 35% 35%; /* Rich soil brown */
+    --earth-beige: 40 25% 85%; /* Natural beige */
+    --earth-sage: 100 20% 60%; /* Sage green */
+    --earth-terracotta: 20 50% 55%; /* Terracotta */
+    
+    /* Soft Pastels */
+    --pastel-lavender: 280 30% 85%; /* Lavender */
+    --pastel-mint: 150 40% 85%; /* Mint green */
+    --pastel-peach: 25 60% 85%; /* Peach */
+    --pastel-lemon: 50 80% 85%; /* Lemon yellow */
+    
+    /* Gold Accents - Premium touches */
+    --gold: 45 85% 60%; /* Rich gold */
+    --gold-light: 45 70% 80%; /* Light gold */
+    --gold-dark: 35 80% 45%; /* Dark gold */
+    --gold-glow: 45 90% 70%; /* Glowing gold */
+    
+    /* Status Colors - Sweets-inspired */
+    --destructive: 0 70% 55%; /* Cherry red */
+    --destructive-foreground: 0 0% 100%;
+    --success: 120 50% 50%; /* Pistachio green */
+    --success-foreground: 0 0% 100%;
+    --warning: 40 85% 60%; /* Mango yellow */
+    --warning-foreground: 25 15% 20%;
+    
+    /* Form Elements */
+    --border: 30 20% 85%;
+    --input: 45 15% 95%;
+    --ring: 15 85% 55%;
+    
+    /* Design System Extensions */
+    --radius: 1rem;
+    
+    /* Vibrant Sweets Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(15 85% 55%), hsl(25 85% 60%));
+    --gradient-secondary: linear-gradient(135deg, hsl(30 25% 35%), hsl(25 35% 35%));
+    --gradient-background: linear-gradient(135deg, hsl(45 20% 98%), hsl(40 15% 97%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(45 15% 98%));
+    --gradient-header: linear-gradient(135deg, hsl(5 75% 50%), hsl(10 80% 60%));
+    --gradient-accent: linear-gradient(135deg, hsl(45 85% 60%), hsl(280 60% 55%)); /* Adjusted from pink to gold */
+    --gradient-sweets: linear-gradient(135deg, hsl(5 75% 50%), hsl(10 80% 60%), hsl(45 90% 65%));
+    --gradient-natural: linear-gradient(135deg, hsl(120 30% 45%), hsl(30 25% 35%), hsl(40 25% 85%));
+    --gradient-gold: linear-gradient(135deg, hsl(45 85% 60%), hsl(35 80% 45%));
+    
+    /* Festive Shadows */
+    --shadow-soft: 0 2px 12px -2px hsl(25 15% 20% / 0.08);
+    --shadow-medium: 0 8px 32px -8px hsl(25 15% 20% / 0.12);
+    --shadow-strong: 0 16px 48px -12px hsl(25 15% 20% / 0.16);
+    --shadow-glow: 0 0 32px hsl(15 85% 55% / 0.15);
+    --shadow-gold: 0 0 24px hsl(45 85% 60% / 0.2);
+    
+    /* Celebratory Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --transition-celebration: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-inter antialiased;
+  }
+  
+  /* Sweets-Inspired Typography */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+  
+  h1 {
+    @apply text-3xl lg:text-4xl leading-tight;
+  }
+  
+  h2 {
+    @apply text-2xl lg:text-3xl leading-tight;
+  }
+  
+  h3 {
+    @apply text-xl lg:text-2xl leading-tight;
+  }
+  
+  /* Vibrant Sweets Cards */
+  .card-professional {
+    @apply bg-card border border-border/60 rounded-xl shadow-soft backdrop-blur-sm;
+  }
+  
+  .card-elevated {
+    @apply card-professional shadow-medium hover:shadow-strong transition-shadow duration-300;
+  }
+  
+  .card-sweets {
+    @apply bg-gradient-to-br from-white to-sweet-cream border border-gold/20 rounded-xl shadow-soft backdrop-blur-sm;
+  }
+  
+  .card-natural {
+    @apply bg-gradient-to-br from-earth-beige to-pastel-peach border border-earth-sage/30 rounded-xl shadow-soft backdrop-blur-sm;
+  }
+  
+  /* Festive Buttons */
+  .btn-professional {
+    @apply px-6 py-3 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
+  }
+  
+  .btn-sweets {
+    @apply px-6 py-3 rounded-lg font-medium bg-gradient-primary text-white shadow-glow hover:shadow-gold transition-all duration-300 hover:scale-105;
+  }
+  
+  .btn-natural {
+    @apply px-6 py-3 rounded-lg font-medium bg-gradient-natural text-white shadow-soft hover:shadow-medium transition-all duration-300;
+  }
+  
+  .btn-gold {
+    @apply px-6 py-3 rounded-lg font-medium bg-gradient-gold text-white shadow-gold hover:shadow-glow transition-all duration-300;
+  }
+  
+  /* Vibrant Metrics */
+  .metric-card {
+    @apply card-elevated p-6 hover:scale-[1.02] transition-transform duration-200;
+  }
+  
+  .metric-sweets {
+    @apply card-sweets p-6 hover:scale-[1.02] transition-transform duration-300 hover:shadow-gold;
+  }
+  
+  .metric-natural {
+    @apply card-natural p-6 hover:scale-[1.02] transition-transform duration-300;
+  }
+  
+  /* Color Utility Classes */
+  .text-sweet-red { color: hsl(var(--sweet-red)); }
+  .text-sweet-yellow { color: hsl(var(--sweet-yellow)); }
+  .text-sweet-green { color: hsl(var(--sweet-green)); }
+  .text-sweet-purple { color: hsl(var(--sweet-purple)); }
+  .text-sweet-orange { color: hsl(var(--sweet-orange)); }
+  .text-sweet-brown { color: hsl(var(--sweet-brown)); }
+  .text-sweet-cream { color: hsl(var(--sweet-cream)); }
+  
+  .text-earth-green { color: hsl(var(--earth-green)); }
+  .text-earth-brown { color: hsl(var(--earth-brown)); }
+  .text-earth-beige { color: hsl(var(--earth-beige)); }
+  .text-earth-sage { color: hsl(var(--earth-sage)); }
+  .text-earth-terracotta { color: hsl(var(--earth-terracotta)); }
+  
+  .text-pastel-lavender { color: hsl(var(--pastel-lavender)); }
+  .text-pastel-mint { color: hsl(var(--pastel-mint)); }
+  .text-pastel-peach { color: hsl(var(--pastel-peach)); }
+  .text-pastel-lemon { color: hsl(var(--pastel-lemon)); }
+  
+  .bg-sweet-red { background-color: hsl(var(--sweet-red)); }
+  .bg-sweet-yellow { background-color: hsl(var(--sweet-yellow)); }
+  .bg-sweet-green { background-color: hsl(var(--sweet-green)); }
+  .bg-sweet-purple { background-color: hsl(var(--sweet-purple)); }
+  .bg-sweet-orange { background-color: hsl(var(--sweet-orange)); }
+  .bg-sweet-brown { background-color: hsl(var(--sweet-brown)); }
+  .bg-sweet-cream { background-color: hsl(var(--sweet-cream)); }
+  
+  .bg-earth-green { background-color: hsl(var(--earth-green)); }
+  .bg-earth-brown { background-color: hsl(var(--earth-brown)); }
+  .bg-earth-beige { background-color: hsl(var(--earth-beige)); }
+  .bg-earth-sage { background-color: hsl(var(--earth-sage)); }
+  .bg-earth-terracotta { background-color: hsl(var(--earth-terracotta)); }
+  
+  .bg-pastel-lavender { background-color: hsl(var(--pastel-lavender)); }
+  .bg-pastel-mint { background-color: hsl(var(--pastel-mint)); }
+  .bg-pastel-peach { background-color: hsl(var(--pastel-peach)); }
+  .bg-pastel-lemon { background-color: hsl(var(--pastel-lemon)); }
+  
+  .bg-gold { background-color: hsl(var(--gold)); }
+  .bg-gold-light { background-color: hsl(var(--gold-light)); }
+  .bg-gold-dark { background-color: hsl(var(--gold-dark)); }
+  
+  /* Gradient Backgrounds */
+  .bg-gradient-sweets { background: var(--gradient-sweets); }
+  .bg-gradient-natural { background: var(--gradient-natural); }
+  .bg-gradient-gold { background: var(--gradient-gold); }
+  
+  /* Gold Accent Borders */
+  .border-gold { border-color: hsl(var(--gold)); }
+  .border-gold-light { border-color: hsl(var(--gold-light)); }
+  .border-gold-dark { border-color: hsl(var(--gold-dark)); }
+  
+  /* Gold Glow Effects */
+  .shadow-gold { box-shadow: var(--shadow-gold); }
+  .glow-gold { box-shadow: 0 0 20px hsl(var(--gold) / 0.3); }
+  
+  /* Vibrant Hover Effects */
+  .hover-sweet-red:hover { color: hsl(var(--sweet-red)); }
+  .hover-sweet-yellow:hover { color: hsl(var(--sweet-yellow)); }
+  .hover-sweet-green:hover { color: hsl(var(--sweet-green)); }
+  .hover-sweet-purple:hover { color: hsl(var(--sweet-purple)); }
+  .hover-sweet-orange:hover { color: hsl(var(--sweet-orange)); }
+  
+  .hover-gold:hover { color: hsl(var(--gold)); }
+  .hover-glow-gold:hover { box-shadow: var(--shadow-gold); }
+}
