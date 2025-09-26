@@ -23,17 +23,6 @@
       "dest": "/index.html"
     }
   ],
-  "functions": {
-    "api/process-file.py": {
-      "maxDuration": 30
-    },
-    "api/interest-analysis.py": {
-      "maxDuration": 15
-    },
-    "api/health.py": {
-      "maxDuration": 5
-    }
-  },
   "env": {
     "PYTHONPATH": "/var/task"
   }

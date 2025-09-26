@@ -30,6 +30,10 @@ test_*.py
 debug_*.py
 diagnostic-*.html
 note.txt
+backend_api.py
+data_backend.py
+start_all.py
+start_backend.py
 
 # Build artifacts
 dist/
