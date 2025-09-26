@@ -74,65 +74,28 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
 
   const processExcelFile = useCallback(async (file: File) => {
     try {
-      // Try backend processing first for Excel files
       const backendResult = await processWithBackend(file);
+
       if (backendResult.success) {
         setUploadedFiles(prev => [...prev, file.name]);
         onFileUpload(backendResult.data, file.name);
         setIsProcessing(false);
-        
-        // Show special message for multi-worksheet files
         if (backendResult.message && backendResult.message.includes('Outlet wise')) {
           console.log('Multi-worksheet file processed successfully:', backendResult.message);
         }
         return;
       } else {
-        console.warn('Backend processing failed, falling back to frontend:', backendResult.error);
+        const errorDetail = backendResult.traceback ? `${backendResult.error}\n\nTraceback:\n${backendResult.traceback}` : backendResult.error;
+        const errorMsg = `File processing failed on the server. Please check the file format.\n\nDetails: ${errorDetail || 'Unknown error.'}`;
+        setError(errorMsg);
+        setIsProcessing(false);
       }
     } catch (backendError) {
-      console.warn('Backend not available, using frontend processing:', backendError);
-    }
-
-    // Fallback to original frontend processing
-    try {
-      const reader = new FileReader();
-      
-      reader.onload = async (e) => {
-        try {
-          const data = e.target?.result;
-          if (!data) {
-            throw new Error('No data received from file');
-          }
-          
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null });
-          
-          const processedData = await processFinancialReport(rawData, file.name);
-          
-          if (processedData.length > 0) {
-            setUploadedFiles(prev => [...prev, file.name]);
-            onFileUpload(processedData, file.name);
-            setIsProcessing(false);
-          } else {
-            setError('Could not extract meaningful data from the financial report. Please check the file format.');
-            setIsProcessing(false);
-          }
-        } catch (err) {
-          setError(`Error processing financial report: ${err.message}`);
-          setIsProcessing(false);
-        }
-      };
-      
-      reader.onerror = () => {
-        setError('Error reading Excel file.');
-        setIsProcessing(false);
-      };
-      
-      reader.readAsArrayBuffer(file);
-    } catch (err) {
-      setError(`Error processing Excel file: ${err.message}`);
+      let errorMsg = `An error occurred while communicating with the backend server: ${backendError.message}.`;
+      if (backendError.message.includes('Failed to fetch')) {
+        errorMsg += ' This might be a network issue or the server is not responding.';
+      }
+      setError(errorMsg);
       setIsProcessing(false);
     }
   }, [onFileUpload]);
