@@ -9,14 +9,26 @@
       }
     },
     {
-      "src": "api/**/*.py",
+      "src": "api/process-file.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "api/health.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "api/interest-analysis.py",
       "use": "@vercel/python"
     }
   ],
-  "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
-  ],
-  "env": {
-    "PYTHONPATH": "/var/task"
-  }
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
 }
