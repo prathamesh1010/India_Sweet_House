@@ -14,6 +14,9 @@
     }
   ],
   "rewrites": [
+    { "source": "/api/health", "destination": "/api/health.py" },
+    { "source": "/api/process-file", "destination": "/api/process-file.py" },
+    { "source": "/api/interest-analysis", "destination": "/api/interest-analysis.py" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "env": {
