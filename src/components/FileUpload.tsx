@@ -21,25 +21,29 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
   const BACKEND_URL = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:5000';
 
   const processWithBackend = async (file: File) => {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
+    const formData = new FormData();
+    formData.append('file', file);
 
-      const response = await fetch(`${BACKEND_URL}/process-file`, {
-        method: 'POST',
-        body: formData,
-      });
+    const response = await fetch(`${BACKEND_URL}/process-file`, {
+      method: 'POST',
+      body: formData,
+    });
 
-      if (!response.ok) {
+    if (!response.ok) {
+      // If the response is not OK, try to parse the JSON body for error details.
+      // This is crucial for seeing the traceback from the Python backend.
+      try {
+        const errorData = await response.json();
+        // Re-throw an error that includes the detailed message from the backend
+        throw new Error(`Backend API error: ${response.status} - ${errorData.error || 'No error detail'}\n\nTraceback:\n${errorData.traceback || 'No traceback available'}`);
+      } catch (e) {
+        // If the body isn't JSON or another error occurs, throw a generic error.
         throw new Error(`Backend API error: ${response.status} ${response.statusText}`);
       }
-
-      const result = await response.json();
-      return result;
-    } catch (error) {
-      console.error('Backend processing error:', error);
-      throw error;
     }
+
+    // If the response is OK, parse the successful JSON body.
+    return response.json();
   };
 
   const validateFile = (file: File): boolean => {
@@ -73,32 +77,39 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
   }, [onFileUpload]);
 
   const processExcelFile = useCallback(async (file: File) => {
+    setIsProcessing(true);
+    setError('');
     try {
       const backendResult = await processWithBackend(file);
 
+      // This part remains the same for successful uploads
       if (backendResult.success) {
         setUploadedFiles(prev => [...prev, file.name]);
         onFileUpload(backendResult.data, file.name);
-        setIsProcessing(false);
         if (backendResult.message && backendResult.message.includes('Outlet wise')) {
           console.log('Multi-worksheet file processed successfully:', backendResult.message);
         }
-        return;
       } else {
-        const errorDetail = backendResult.traceback ? `${backendResult.error}\n\nTraceback:\n${backendResult.traceback}` : backendResult.error;
+        // This part is enhanced to show the detailed error from the backend
+        const errorDetail = backendResult.traceback 
+          ? `${backendResult.error}\n\nTraceback:\n${backendResult.traceback}` 
+          : backendResult.error;
         const errorMsg = `File processing failed on the server. Please check the file format.\n\nDetails: ${errorDetail || 'Unknown error.'}`;
         setError(errorMsg);
-        setIsProcessing(false);
       }
     } catch (backendError) {
-      let errorMsg = `An error occurred while communicating with the backend server: ${backendError.message}.`;
+      // This part handles network errors or cases where the backend response is not valid JSON
+      let errorMsg = `An error occurred while communicating with the backend: ${backendError.message}.`;
       if (backendError.message.includes('Failed to fetch')) {
-        errorMsg += ' This might be a network issue or the server is not responding.';
+        errorMsg += ' This could be a network issue or the server is unavailable.';
+      } else if (backendError.message.includes('invalid json')) {
+        errorMsg += ' The server sent back a response that could not be understood. This often happens with internal server errors.';
       }
       setError(errorMsg);
+    } finally {
       setIsProcessing(false);
     }
-  }, [onFileUpload]);
+  }, [onFileUpload, processWithBackend]);
 
   const processCsvFile = useCallback((file: File) => {
     Papa.parse(file, {
