@@ -4,7 +4,7 @@ import tempfile
 import os
 import traceback
 from werkzeug.utils import secure_filename
-from data_processor import process_financial_data
+from api.data_processor import process_financial_data
 
 # Vercel expects an 'app' instance to be exposed
 app = Flask(__name__)
