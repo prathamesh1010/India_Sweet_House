@@ -21,14 +21,22 @@
       "use": "@vercel/python"
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1.py"
+      "source": "/api/process-file",
+      "destination": "/api/process-file.py"
     },
     {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/api/health", 
+      "destination": "/api/health.py"
+    },
+    {
+      "source": "/api/interest-analysis",
+      "destination": "/api/interest-analysis.py"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }
