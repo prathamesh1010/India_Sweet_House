@@ -261,12 +261,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
           'Discount (%)': 0,
           'GST (%)': 0,
           'Gross Amount': parseFloat(row[4]) || 0,
-          PBT: parseFloat(row[9]) || 0,
-          EBITDA: parseFloat(row[7]) || 0,
           'Upload Filename': filename,
           'Metric Type': 'Outlet Summary',
           'Percentage': 0,
-          Month: month || currentDate,
           'Item Name': 'Outlet Summary',
           'Store Name': outletName,
           'Cluster Manager': outletManager,
@@ -275,8 +272,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
           'Total Sales': parseFloat(row[4]) || 0,
           Qty: 1,
           // Additional outlet-specific data
-          'Outlet Name': outletName,
-          'Outlet Manager': outletManager
+          'Outlet Name': outletName
         };
         
         processedData.push(outletRecord);
