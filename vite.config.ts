@@ -5,7 +5,7 @@ import path from "path";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   root: ".", // Set root to the current directory
-  base: mode === "production" ? "/" : "/", // Use absolute paths for production
+  base: mode === "production" ? "" : "/", // Use relative paths for production
   plugins: [react()],
   build: {
     outDir: "dist", // Ensure output is in the dist folder
