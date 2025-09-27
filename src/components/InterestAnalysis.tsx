@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Filter, X, TrendingUp, DollarSign, PieChart, BarChart3, Calculator, Percent } from 'lucide-react';
+import { formatIndianCurrency } from '../lib/utils';
 import {
   BarChart,
   Bar,
@@ -420,7 +421,7 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = memo(({ data, c
             <div>
               <p className="text-sm font-medium text-muted-foreground mb-1">Total Interest Costs</p>
               <p className="text-2xl font-bold text-foreground font-display">
-                ₹{Math.round(interestData.totalInterestCosts).toLocaleString()}
+                {formatIndianCurrency(Math.round(interestData.totalInterestCosts))}
               </p>
             </div>
             <div className="p-3 bg-red-100 rounded-lg">
@@ -514,7 +515,7 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = memo(({ data, c
                         borderRadius: '12px',
                         color: 'hsl(var(--foreground))'
                       }}
-                      formatter={(value: any) => [`₹${Math.round(value).toLocaleString()}`, 'Amount']}
+                      formatter={(value: any) => [formatIndianCurrency(Math.round(value)), 'Amount']}
                     />
                     <Legend />
                   </RechartsPieChart>
@@ -548,7 +549,7 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = memo(({ data, c
                         borderRadius: '8px',
                         color: 'hsl(var(--foreground))'
                       }}
-                      formatter={(value: any) => [`₹${Math.round(value).toLocaleString()}`, 'Amount']}
+                      formatter={(value: any) => [formatIndianCurrency(Math.round(value)), 'Amount']}
                     />
                     <Bar dataKey="totalAmount" fill="hsl(220, 70%, 50%)" radius={[4, 4, 0, 0]} />
                   </BarChart>
@@ -578,10 +579,10 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = memo(({ data, c
                         {item.interestType.replace(/^\d+-/, '')}
                       </td>
                       <td className="py-3 px-4 text-right font-semibold text-foreground">
-                        ₹{Math.round(item.totalAmount).toLocaleString()}
+                        {formatIndianCurrency(Math.round(item.totalAmount))}
                       </td>
                       <td className="py-3 px-4 text-right text-muted-foreground">
-                        ₹{Math.round(item.averageAmount).toLocaleString()}
+                        {formatIndianCurrency(Math.round(item.averageAmount))}
                       </td>
                       <td className="py-3 px-4 text-right text-muted-foreground">
                         {item.outletCount}
@@ -625,7 +626,7 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = memo(({ data, c
                       color: 'hsl(var(--foreground))'
                     }}
                     formatter={(value: any, name: string) => [
-                      `₹${Math.round(value).toLocaleString()}`,
+                      formatIndianCurrency(Math.round(value)),
                       'Finance Cost'
                     ]}
                     labelFormatter={(label, payload) => {
@@ -671,7 +672,7 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = memo(({ data, c
                       color: 'hsl(var(--foreground))'
                     }}
                     formatter={(value: any, name: string) => [
-                      name.includes('Interest Rate') ? `${value.toFixed(2)}%` : `₹${Math.round(value).toLocaleString()}`,
+                      name.includes('Interest Rate') ? `${value.toFixed(2)}%` : formatIndianCurrency(Math.round(value)),
                       name.includes('Interest Rate') ? 'Interest Rate' : 'Finance Cost'
                     ]}
                     labelFormatter={(label, payload) => {
@@ -730,7 +731,7 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = memo(({ data, c
                       color: 'hsl(var(--foreground))'
                     }}
                     formatter={(value: any, name: string) => [
-                      `₹${Math.round(value).toLocaleString()}`,
+                      formatIndianCurrency(Math.round(value)),
                       name
                     ]}
                   />
@@ -864,7 +865,7 @@ export const InterestAnalysis: React.FC<InterestAnalysisProps> = memo(({ data, c
             <h3 className="text-xl font-semibold mb-3 font-display">Interest Cost Optimization Insights</h3>
             <p className="text-white/90 text-base leading-relaxed">
               {interestData.totalInterestCosts > 0 
-                ? `Your total interest costs are ₹${Math.round(interestData.totalInterestCosts).toLocaleString()} with an average rate of ${interestData.averageInterestRate.toFixed(2)}%. Focus on optimizing outlets with high interest rates and consider refinancing options for better financial efficiency.`
+                ? `Your total interest costs are ${formatIndianCurrency(Math.round(interestData.totalInterestCosts))} with an average rate of ${interestData.averageInterestRate.toFixed(2)}%. Focus on optimizing outlets with high interest rates and consider refinancing options for better financial efficiency.`
                 : 'Upload your financial data to analyze interest costs and identify optimization opportunities for better financial performance.'
               }
             </p>

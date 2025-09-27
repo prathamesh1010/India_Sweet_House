@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Filter, X } from 'lucide-react';
 import { BarChart3, TrendingUp } from 'lucide-react';
 import { useStoreContext } from '../contexts/StoreContext';
+import { formatIndianCurrency, formatIndianNumber } from '../lib/utils';
 import {
   BarChart,
   Bar,
@@ -600,7 +601,7 @@ export const ChartsSection: React.FC<ChartsSectionProps> = ({ data, className = 
                     backdropFilter: 'blur(10px)'
                   }}
                   formatter={(value: any, name: string) => [
-                    `₹${Math.round(value).toLocaleString()}`,
+                    formatIndianCurrency(Math.round(value)),
                     'Amount'
                   ]}
                   labelStyle={{
@@ -654,7 +655,7 @@ export const ChartsSection: React.FC<ChartsSectionProps> = ({ data, className = 
                     color: 'hsl(var(--foreground))'
                   }}
                   formatter={(value: any, name: string) => [
-                    `₹${Math.round(value).toLocaleString()}`,
+                    formatIndianCurrency(Math.round(value)),
                     'Revenue'
                   ]}
                 />
@@ -696,7 +697,7 @@ export const ChartsSection: React.FC<ChartsSectionProps> = ({ data, className = 
                   color: 'hsl(var(--foreground))'
                 }}
                 formatter={(value: any, name: string) => [
-                  `₹${Math.round(value).toLocaleString()}`,
+                  formatIndianCurrency(Math.round(value)),
                   'Revenue'
                 ]}
               />
@@ -716,9 +717,9 @@ export const ChartsSection: React.FC<ChartsSectionProps> = ({ data, className = 
                 <span className="font-medium text-foreground">{item.label}:</span>
                 <span className="font-bold text-primary">
                   {item.format === 'currency' 
-                    ? `₹${Math.round(item.value).toLocaleString()}`
+                    ? formatIndianCurrency(Math.round(item.value))
                     : item.format === 'number'
-                    ? item.value.toLocaleString()
+                    ? formatIndianNumber(item.value)
                     : item.value
                   }
                 </span>
@@ -772,7 +773,7 @@ export const ChartsSection: React.FC<ChartsSectionProps> = ({ data, className = 
                       boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
                     }}
                     formatter={(value: any, name: string) => [
-                      `₹${Math.round(value).toLocaleString()}`,
+                      formatIndianCurrency(Math.round(value)),
                       'Amount'
                     ]}
                   />
@@ -823,7 +824,7 @@ export const ChartsSection: React.FC<ChartsSectionProps> = ({ data, className = 
                   color: 'hsl(var(--foreground))'
                 }}
                 formatter={(value: any, name: string) => [
-                  `₹${Math.round(value).toLocaleString()}`,
+                  formatIndianCurrency(Math.round(value)),
                   name
                 ]}
               />
@@ -852,7 +853,7 @@ export const ChartsSection: React.FC<ChartsSectionProps> = ({ data, className = 
             <h3 className="text-xl font-semibold mb-3 font-display">Financial Performance Insights</h3>
             <p className="text-white/90 text-base leading-relaxed">
               {cashierPerformance.length > 0 
-                ? `${(cashierPerformance[0] as any)?.cashier || 'Top performer'} leads with ₹${Math.round((cashierPerformance[0] as any)?.totalRevenue || 0).toLocaleString()} in total revenue. The top financial metric is ${financialSummary[3]?.value || 'Direct Income'} contributing ₹${Math.round(financialSummary[4]?.value || 0).toLocaleString()}. Focus on optimizing underperforming metrics and supporting top cashiers for maximum profitability.`
+                ? `${(cashierPerformance[0] as any)?.cashier || 'Top performer'} leads with ${formatIndianCurrency(Math.round((cashierPerformance[0] as any)?.totalRevenue || 0))} in total revenue. The top financial metric is ${financialSummary[3]?.value || 'Direct Income'} contributing ${formatIndianCurrency(Math.round(financialSummary[4]?.value || 0))}. Focus on optimizing underperforming metrics and supporting top cashiers for maximum profitability.`
                 : 'Upload your financial data to discover actionable insights about cashier performance, financial metrics, and revenue patterns to optimize your restaurant operations!'
               }
             </p>

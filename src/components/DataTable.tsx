@@ -8,6 +8,7 @@ import { Search, Download, ArrowUpDown } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { usePerformanceOptimization } from '@/hooks/usePerformanceOptimization';
 import { useStoreContext } from '../contexts/StoreContext';
+import { formatIndianCurrency } from '../lib/utils';
 
 interface DataTableProps {
   data: any[];
@@ -23,7 +24,7 @@ const TableRow = memo(({ row, displayColumns, index }: { row: any; displayColumn
     {displayColumns.map(column => (
       <td key={column} className="px-4 py-3 text-sm text-foreground" style={{ minWidth: '150px', width: '150px' }}>
         {(column.includes('₹') || ['Gross Amount', 'PBT', 'EBITDA', 'Total Amount (₹)', 'Direct Income', 'TOTAL REVENUE', 'COGS', 'Outlet Expenses', 'EBIDTA', 'Finance Cost', 'WASTAGE'].includes(column)) && row[column] 
-          ? <span className="text-sweet-green font-semibold">₹{parseFloat(row[column]).toFixed(2)}</span>
+          ? <span className="text-sweet-green font-semibold">{formatIndianCurrency(parseFloat(row[column]))}</span>
           : column === 'Percentage' && row[column]
             ? <span className="text-sweet-orange font-semibold">{parseFloat(row[column]).toFixed(2)}%</span>
             : column === 'Cluster Manager' 

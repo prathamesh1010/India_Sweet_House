@@ -1,4 +1,5 @@
 import React, { memo, useMemo, useCallback, useState, useEffect } from 'react';
+import { formatIndianCurrency } from '../lib/utils';
 
 interface VirtualizedTableProps {
   data: any[];
@@ -18,7 +19,7 @@ const TableRow = memo(({ item, columns, index }: { item: any; columns: string[];
           style={{ minWidth: '150px', width: '150px' }}
         >
           {(column.includes('₹') || ['Gross Amount', 'PBT', 'EBITDA', 'Total Amount (₹)', 'Direct Income', 'TOTAL REVENUE', 'COGS', 'Outlet Expenses', 'EBIDTA', 'Finance Cost', 'WASTAGE'].includes(column)) && item[column] 
-            ? `₹${parseFloat(item[column]).toFixed(2)}`
+            ? formatIndianCurrency(parseFloat(item[column]))
             : column === 'Percentage' && item[column]
               ? `${parseFloat(item[column]).toFixed(2)}%`
               : column === 'Cluster Manager' 

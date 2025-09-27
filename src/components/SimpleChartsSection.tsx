@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart3, TrendingUp, Filter, X, FileText, GitCompare, Users } from 'lucide-react';
 import { useStoreContext } from '../contexts/StoreContext';
+import { formatIndianCurrency } from '../lib/utils';
 import {
   BarChart,
   Bar,
@@ -829,56 +830,56 @@ export const SimpleChartsSection: React.FC<SimpleChartsSectionProps> = memo(({ d
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">Direct Income</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold">₹{Math.round(sheet.directIncome).toLocaleString()}</span>
+                          <span className="font-semibold">{formatIndianCurrency(Math.round(sheet.directIncome))}</span>
                         </div>
           </div>
 
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">Total Revenue</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold">₹{Math.round(sheet.totalRevenue).toLocaleString()}</span>
+                          <span className="font-semibold">{formatIndianCurrency(Math.round(sheet.totalRevenue))}</span>
                         </div>
           </div>
 
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">COGS</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold">₹{Math.round(sheet.cogs).toLocaleString()}</span>
+                          <span className="font-semibold">{formatIndianCurrency(Math.round(sheet.cogs))}</span>
                         </div>
           </div>
 
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">Outlet Expenses</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold">₹{Math.round(sheet.outletExpenses).toLocaleString()}</span>
+                          <span className="font-semibold">{formatIndianCurrency(Math.round(sheet.outletExpenses))}</span>
           </div>
         </div>
 
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">EBITDA</span>
           <div className="flex items-center gap-2">
-                          <span className="font-semibold">₹{Math.round(sheet.ebitda).toLocaleString()}</span>
+                          <span className="font-semibold">{formatIndianCurrency(Math.round(sheet.ebitda))}</span>
                         </div>
           </div>
           
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">PBT</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold">₹{Math.round(sheet.pbt).toLocaleString()}</span>
+                          <span className="font-semibold">{formatIndianCurrency(Math.round(sheet.pbt))}</span>
         </div>
             </div>
 
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">Wastage</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold">₹{Math.round(sheet.wastage).toLocaleString()}</span>
+                          <span className="font-semibold">{formatIndianCurrency(Math.round(sheet.wastage))}</span>
                         </div>
                       </div>
 
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">Average Outlet Income</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold">₹{Math.round(sheet.averageOutletIncome).toLocaleString()}</span>
+                          <span className="font-semibold">{formatIndianCurrency(Math.round(sheet.averageOutletIncome))}</span>
                         </div>
                       </div>
 
@@ -933,7 +934,7 @@ export const SimpleChartsSection: React.FC<SimpleChartsSectionProps> = memo(({ d
                           >
                             <div className="absolute inset-0 flex items-center justify-between px-4 text-white font-medium">
                               <span className="text-sm truncate">{item.name}</span>
-                              <span className="text-sm font-bold">₹{Math.round(item.value).toLocaleString()}</span>
+                              <span className="text-sm font-bold">{formatIndianCurrency(Math.round(item.value))}</span>
                             </div>
                             <div className="absolute inset-0 flex items-center justify-center">
                               <span className="text-xs text-white/80 font-medium">{item.percentage.toFixed(1)}%</span>
@@ -1012,7 +1013,7 @@ export const SimpleChartsSection: React.FC<SimpleChartsSectionProps> = memo(({ d
                                 return (
                                   <p key={metric.key} className="text-xs mb-1">
                                     <span className="inline-block w-3 h-3 rounded mr-2" style={{ backgroundColor: data.color }}></span>
-                                    {metric.name}: <span className="font-medium">₹{Math.round(data.value).toLocaleString()}</span>
+                                    {metric.name}: <span className="font-medium">{formatIndianCurrency(Math.round(data.value))}</span>
                                   </p>
                                 );
                               }
@@ -1093,7 +1094,7 @@ export const SimpleChartsSection: React.FC<SimpleChartsSectionProps> = memo(({ d
                       borderRadius: '12px',
                           color: 'hsl(var(--foreground))'
                         }}
-                        formatter={(value: any) => [`₹${Math.round(value).toLocaleString()}`, 'Revenue']}
+                        formatter={(value: any) => [formatIndianCurrency(Math.round(value)), 'Revenue']}
                       />
                       <Legend />
                 </PieChart>
@@ -1128,7 +1129,7 @@ export const SimpleChartsSection: React.FC<SimpleChartsSectionProps> = memo(({ d
                           color: 'hsl(var(--foreground))'
                         }}
                         formatter={(value: any, name: string) => [
-                          `₹${Math.round(value).toLocaleString()}`,
+                          formatIndianCurrency(Math.round(value)),
                           name
                         ]}
                       />
@@ -1193,7 +1194,7 @@ export const SimpleChartsSection: React.FC<SimpleChartsSectionProps> = memo(({ d
                           color: 'hsl(var(--foreground))'
                         }}
                         formatter={(value: any, name: string) => [
-                          `₹${Math.round(value).toLocaleString()}`,
+                          formatIndianCurrency(Math.round(value)),
                           name
                         ]}
                       />
@@ -1336,7 +1337,7 @@ export const SimpleChartsSection: React.FC<SimpleChartsSectionProps> = memo(({ d
                               if (data && data.value !== undefined) {
                                 const formattedValue = metric.key === 'margin' 
                                   ? `${data.value.toFixed(2)}%` 
-                                  : `₹${Math.round(data.value).toLocaleString()}`;
+                                  : formatIndianCurrency(Math.round(data.value));
                                 
                                 return (
                                   <p key={metric.key} className="text-xs mb-1">
@@ -1453,7 +1454,7 @@ export const SimpleChartsSection: React.FC<SimpleChartsSectionProps> = memo(({ d
                           backdropFilter: 'blur(10px)'
                         }}
                         formatter={(value: any, name: string) => [
-                          `₹${Math.round(value).toLocaleString()}`, 
+                          formatIndianCurrency(Math.round(value)), 
                           name
                         ]}
                         labelStyle={{
@@ -1487,7 +1488,7 @@ export const SimpleChartsSection: React.FC<SimpleChartsSectionProps> = memo(({ d
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-semibold text-foreground">
-                          ₹{Math.round(item.value).toLocaleString()}
+                          {formatIndianCurrency(Math.round(item.value))}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {((item.value / fileData.data.reduce((sum, item) => sum + item.value, 0)) * 100).toFixed(1)}%
@@ -1591,7 +1592,7 @@ export const SimpleChartsSection: React.FC<SimpleChartsSectionProps> = memo(({ d
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-bold text-green-600">₹{Math.round(manager.revenue).toLocaleString()}</div>
+                        <div className="font-bold text-green-600">{formatIndianCurrency(Math.round(manager.revenue))}</div>
                         <div className="text-xs text-muted-foreground">{manager.transactions} transactions</div>
                       </div>
                     </div>
@@ -1617,7 +1618,7 @@ export const SimpleChartsSection: React.FC<SimpleChartsSectionProps> = memo(({ d
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-bold text-red-600">₹{Math.round(manager.revenue).toLocaleString()}</div>
+                        <div className="font-bold text-red-600">{formatIndianCurrency(Math.round(manager.revenue))}</div>
                         <div className="text-xs text-muted-foreground">{manager.transactions} transactions</div>
                       </div>
                     </div>
@@ -1670,7 +1671,7 @@ export const SimpleChartsSection: React.FC<SimpleChartsSectionProps> = memo(({ d
                       color: 'hsl(var(--foreground))'
                     }}
                     formatter={(value: any, name: string) => [
-                      `₹${Math.round(value).toLocaleString()}`,
+                      formatIndianCurrency(Math.round(value)),
                       'Revenue'
                     ]}
                     labelFormatter={(label, payload) => {
@@ -1707,7 +1708,7 @@ export const SimpleChartsSection: React.FC<SimpleChartsSectionProps> = memo(({ d
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-bold text-green-600">₹{Math.round(outlet.revenue).toLocaleString()}</div>
+                      <div className="font-bold text-green-600">{formatIndianCurrency(Math.round(outlet.revenue))}</div>
                       <div className="text-xs text-muted-foreground">{outlet.transactions} transactions</div>
                     </div>
                   </div>
@@ -1733,7 +1734,7 @@ export const SimpleChartsSection: React.FC<SimpleChartsSectionProps> = memo(({ d
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-bold text-red-600">₹{Math.round(outlet.revenue).toLocaleString()}</div>
+                      <div className="font-bold text-red-600">{formatIndianCurrency(Math.round(outlet.revenue))}</div>
                       <div className="text-xs text-muted-foreground">{outlet.transactions} transactions</div>
                     </div>
                   </div>

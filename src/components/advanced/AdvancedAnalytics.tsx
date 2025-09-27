@@ -13,6 +13,7 @@ import {
   LineChart, Line, PieChart, Pie, Cell, Area, AreaChart, ComposedChart, ScatterChart, Scatter
 } from 'recharts';
 import { useStoreContext } from '../../contexts/StoreContext';
+import { formatIndianCurrency } from '../../lib/utils';
 
 interface AdvancedAnalyticsProps {
   data: any[];
@@ -637,7 +638,7 @@ export const AdvancedAnalytics: React.FC<AdvancedAnalyticsProps> = ({ data, clas
             <div>
               <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Total Revenue</p>
               <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                ₹{financialMetrics?.totalRevenue.toLocaleString() || 0}
+                {formatIndianCurrency(financialMetrics?.totalRevenue || 0)}
               </p>
             </div>
             <DollarSign className="h-8 w-8 text-slate-500" />
@@ -687,7 +688,7 @@ export const AdvancedAnalytics: React.FC<AdvancedAnalyticsProps> = ({ data, clas
             <div>
               <p className="text-sm font-medium text-green-600 dark:text-green-400">Total PBT</p>
               <p className="text-2xl font-bold text-green-900 dark:text-green-100">
-                ₹{financialMetrics?.totalPBT.toLocaleString() || 0}
+                {formatIndianCurrency(financialMetrics?.totalPBT || 0)}
               </p>
             </div>
             <Target className="h-8 w-8 text-green-500" />
@@ -703,7 +704,7 @@ export const AdvancedAnalytics: React.FC<AdvancedAnalyticsProps> = ({ data, clas
             <div>
               <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Total EBITDA</p>
               <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
-                ₹{financialMetrics?.totalEBITDA.toLocaleString() || 0}
+                {formatIndianCurrency(financialMetrics?.totalEBITDA || 0)}
               </p>
             </div>
             <BarChart3 className="h-8 w-8 text-purple-500" />
@@ -765,7 +766,7 @@ export const AdvancedAnalytics: React.FC<AdvancedAnalyticsProps> = ({ data, clas
                       color: 'hsl(var(--foreground))'
                     }}
                     formatter={(value: any) => [
-                      `₹${Math.round(value).toLocaleString()}`,
+                      formatIndianCurrency(Math.round(value)),
                       'Revenue'
                     ]}
                   />
@@ -838,7 +839,7 @@ export const AdvancedAnalytics: React.FC<AdvancedAnalyticsProps> = ({ data, clas
                       color: 'hsl(var(--foreground))'
                     }}
                     formatter={(value: any) => [
-                      `₹${Math.round(value).toLocaleString()}`,
+                      formatIndianCurrency(Math.round(value)),
                       'Revenue'
                     ]}
                   />
@@ -908,7 +909,7 @@ export const AdvancedAnalytics: React.FC<AdvancedAnalyticsProps> = ({ data, clas
                               {item.percentage.toFixed(1)}%
                             </span>
                             <span className="text-sm font-bold">
-                              ₹{Math.round(item.value).toLocaleString()}
+                              {formatIndianCurrency(Math.round(item.value))}
                             </span>
                           </div>
                         </div>
@@ -1215,7 +1216,7 @@ export const AdvancedAnalytics: React.FC<AdvancedAnalyticsProps> = ({ data, clas
               <h4 className="font-semibold mb-2 text-green-600">Best Performing Branch</h4>
               <p className="text-2xl font-bold">{(branchPerformance as any)?.[0]?.branch || 'N/A'}</p>
               <p className="text-sm text-muted-foreground">
-                ₹{(branchPerformance as any)?.[0]?.revenue?.toLocaleString() || 0} revenue
+                {formatIndianCurrency((branchPerformance as any)?.[0]?.revenue || 0)} revenue
               </p>
             </Card>
 
@@ -1223,7 +1224,7 @@ export const AdvancedAnalytics: React.FC<AdvancedAnalyticsProps> = ({ data, clas
               <h4 className="font-semibold mb-2 text-slate-600">Top Product</h4>
               <p className="text-2xl font-bold">{(topProducts as any)?.[0]?.product || 'N/A'}</p>
               <p className="text-sm text-muted-foreground">
-                ₹{(topProducts as any)?.[0]?.revenue?.toLocaleString() || 0} revenue
+                {formatIndianCurrency((topProducts as any)?.[0]?.revenue || 0)} revenue
               </p>
             </Card>
 

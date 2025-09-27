@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Filter, X } from 'lucide-react';
 import { TrendingUp, DollarSign, ShoppingCart, Clock, Users, Crown } from 'lucide-react';
+import { formatIndianCurrency } from '../lib/utils';
 
 interface DashboardProps {
   data: any[];
@@ -326,35 +327,35 @@ export const Dashboard: React.FC<DashboardProps> = memo(({ data, className = '' 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard
           title="Direct Income"
-          value={`₹${metrics.directIncome.toLocaleString()}`}
+          value={formatIndianCurrency(metrics.directIncome)}
           icon={<DollarSign className="h-6 w-6" />}
           color="text-green-600"
         />
         
         <MetricCard
           title="Total Revenue"
-          value={`₹${metrics.totalRevenue.toLocaleString()}`}
+          value={formatIndianCurrency(metrics.totalRevenue)}
           icon={<TrendingUp className="h-6 w-6" />}
           color="text-slate-600"
         />
         
         <MetricCard
           title="COGS"
-          value={`₹${metrics.cogs.toLocaleString()}`}
+          value={formatIndianCurrency(metrics.cogs)}
           icon={<ShoppingCart className="h-6 w-6" />}
           color="text-orange-600"
         />
         
         <MetricCard
           title="Outlet Expenses"
-          value={`₹${metrics.outletExpenses.toLocaleString()}`}
+          value={formatIndianCurrency(metrics.outletExpenses)}
           icon={<Clock className="h-6 w-6" />}
           color="text-red-600"
         />
 
         <MetricCard
           title="EBITDA"
-          value={`₹${metrics.ebitda.toLocaleString()}`}
+          value={formatIndianCurrency(metrics.ebitda)}
           icon={<TrendingUp className="h-6 w-6" />}
           color="text-purple-600"
         />
@@ -362,14 +363,14 @@ export const Dashboard: React.FC<DashboardProps> = memo(({ data, className = '' 
 
         <MetricCard
           title="PBT"
-          value={`₹${metrics.pbt.toLocaleString()}`}
+          value={formatIndianCurrency(metrics.pbt)}
           icon={<Crown className="h-6 w-6" />}
           color="text-green-600"
         />
 
         <MetricCard
           title="Wastage"
-          value={`₹${metrics.wastage.toLocaleString()}`}
+          value={formatIndianCurrency(metrics.wastage)}
           icon={<ShoppingCart className="h-6 w-6" />}
           color="text-red-600"
         />
@@ -391,7 +392,7 @@ export const Dashboard: React.FC<DashboardProps> = memo(({ data, className = '' 
 
         <MetricCard
           title="Average Outlet Income"
-          value={`₹${metrics.averageOutletIncome.toLocaleString()}`}
+          value={formatIndianCurrency(metrics.averageOutletIncome)}
           icon={<DollarSign className="h-6 w-6" />}
           color="text-indigo-600"
         />
