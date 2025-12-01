@@ -88,15 +88,23 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
   };
 
   const processFile = useCallback((file: File) => {
-    if (!validateFile(file)) return;
+    console.log('[processFile] START - File:', file.name, 'Type:', file.type, 'Size:', file.size);
     
+    if (!validateFile(file)) {
+      console.log('[processFile] Validation failed');
+      return;
+    }
+    
+    console.log('[processFile] Validation passed, starting processing...');
     setIsProcessing(true);
     setError('');
 
     // Check if it's an Excel file and handle it differently
     if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      console.log('[processFile] Detected Excel file, calling processExcelFile');
       processExcelFile(file);
     } else {
+      console.log('[processFile] Detected CSV file, calling processCsvFile');
       processCsvFile(file);
     }
   }, [onFileUpload]);
@@ -131,14 +139,17 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       
       reader.onload = async (e) => {
         try {
+          console.log('[FileUpload] ========== READER ONLOAD TRIGGERED ==========');
           const data = e.target?.result;
           if (!data) {
             throw new Error('No data received from file');
           }
           
-          console.log('[FileUpload] Reading Excel workbook...');
+          console.log('[FileUpload] Reading Excel workbook... Data size:', (data as ArrayBuffer).byteLength, 'bytes');
           const workbook = XLSX.read(data, { type: 'array' });
+          console.log('[FileUpload] Workbook loaded successfully');
           console.log('[FileUpload] Found sheets:', workbook.SheetNames);
+          console.log('[FileUpload] Sheet details:', workbook.SheetNames.map(name => `"${name}"`).join(', '));
           
           // Check if there's an "Outlet wise" worksheet
           const outletWiseSheet = workbook.SheetNames.find(name => 
@@ -814,12 +825,16 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
     e.preventDefault();
     setIsDragOver(false);
     
+    console.log('[handleDrop] DROP EVENT - Files dropped:', e.dataTransfer.files.length);
     const files = Array.from(e.dataTransfer.files);
+    console.log('[handleDrop] Processing files:', files.map(f => f.name).join(', '));
     files.forEach(processFile);
   }, [processFile]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('[handleFileSelect] SELECT EVENT - Files selected:', e.target.files?.length || 0);
     const files = Array.from(e.target.files || []);
+    console.log('[handleFileSelect] Processing files:', files.map(f => f.name).join(', '));
     files.forEach(processFile);
   }, [processFile]);
 
