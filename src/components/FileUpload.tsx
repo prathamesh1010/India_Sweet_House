@@ -158,6 +158,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
           }
           
           const worksheet = workbook.Sheets[sheetName];
+          
+          console.log('[Excel] Converting sheet to JSON with header:1, raw:false...');
           const rawData: any[][] = XLSX.utils.sheet_to_json(worksheet, { 
             header: 1, 
             defval: null,
@@ -165,8 +167,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
           });
           
           console.log('[Excel] Extracted', rawData.length, 'rows');
+          console.log('[Excel] First row sample:', rawData[0]?.slice(0, 10));
+          console.log('[Excel] Second row sample:', rawData[1]?.slice(0, 10));
+          console.log('[Excel] Third row sample:', rawData[2]?.slice(0, 10));
           
+          console.log('[Excel] Calling processOutletWiseData...');
           const processedData = await processOutletWiseData(rawData, file.name);
+          console.log('[Excel] processOutletWiseData returned:', processedData.length, 'records');
           
           if (processedData.length > 0) {
             console.log('[Excel] ✓✓✓ SUCCESS! Processed', processedData.length, 'records');
@@ -235,14 +242,27 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       "03-Interest on Vehicle Loan", "04-MG"
     ];
     
-    // Step 3: Filter rows to only required metrics
+    // Step 3: Filter rows to only required metrics - use flexible matching
     const metricsData: Array<{particular: string, values: any[]}> = [];
     for (const row of dataRows) {
       const particular = normStr(row[partCol]);
-      if (requiredMetrics.some(m => normUpper(particular).includes(normUpper(m)) || normUpper(m).includes(normUpper(particular)))) {
+      const particularUpper = normUpper(particular);
+      
+      // Check if this row contains any required metric (flexible matching)
+      const matchesMetric = requiredMetrics.some(m => {
+        const metricUpper = normUpper(m);
+        return particularUpper.includes(metricUpper) || 
+               metricUpper.includes(particularUpper) ||
+               particularUpper === metricUpper;
+      });
+      
+      if (matchesMetric && particular.length > 0) {
+        console.log('[Process] Matched metric:', particular);
         metricsData.push({ particular, values: row });
       }
     }
+    
+    console.log('[Process] Total metrics matched:', metricsData.length);
     
     if (metricsData.length === 0) {
       console.error('[Process] No required metrics found in data');
@@ -256,6 +276,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
     console.log('[Process] Found', metricsData.length, 'metric rows');
     
     // Step 4: Detect Month-% column pairs
+    console.log('[Process] Step 4: Detecting Month-% column pairs...');
+    console.log('[Process] Header row length:', headerRowData.length);
+    console.log('[Process] Scanning from column', partCol + 1, 'to', headerRowData.length - 1);
+    
     const monthPattern = /^[A-Za-z]+-\d{2}(?:\.\d+)?$/;
     const pctPattern = /^%(?:\.\d+)?$/;
     const outletBlocks: Array<{valIdx: number, monthCol: string, pctCol: string}> = [];
@@ -264,7 +288,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       const colName = normStr(headerRowData[i]);
       const nextName = normStr(headerRowData[i + 1]);
       
+      console.log(`[Process] Col ${i}: "${colName}" | Col ${i+1}: "${nextName}"`);
+      
       if (monthPattern.test(colName) && (nextName === '%' || pctPattern.test(nextName))) {
+        console.log(`[Process] ✓ MATCHED Month-% pair at column ${i}: "${colName}" + "${nextName}"`);
         outletBlocks.push({
           valIdx: i,
           monthCol: colName,
