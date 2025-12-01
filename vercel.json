@@ -2,5 +2,26 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "functions": {
+    "api/*.py": {
+      "runtime": "python3.11",
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/process-file",
+      "destination": "/api/backend/process-file"
+    },
+    {
+      "source": "/health",
+      "destination": "/api/backend/health"
+    },
+    {
+      "source": "/interest-analysis",
+      "destination": "/api/backend/interest-analysis"
+    }
+  ]
 }

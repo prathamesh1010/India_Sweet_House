@@ -9,6 +9,22 @@ import os
 import traceback
 from werkzeug.utils import secure_filename
 
+
+def parse_float(value, default=0.0):
+    """
+    Safe float conversion (similar to JS parseFloat used previously)
+    """
+    try:
+        if value is None:
+            return default
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return default
+        return float(value)
+    except (ValueError, TypeError):
+        return default
+
 app = Flask(__name__)
 
 # Enable CORS for frontend communication
@@ -17,7 +33,10 @@ allowed_origins = os.environ.get('ALLOWED_ORIGINS', '*').split(',')
 CORS(app, origins=allowed_origins if allowed_origins != ['*'] else '*')
 
 # Configuration
-UPLOAD_FOLDER = 'uploads'
+UPLOAD_FOLDER = os.environ.get(
+    'UPLOAD_FOLDER',
+    os.path.join(tempfile.gettempdir(), 'uploads') if os.environ.get('VERCEL') else 'uploads'
+)
 ALLOWED_EXTENSIONS = {'xlsx', 'xls', 'csv'}
 
 # Create upload directory if it doesn't exist
@@ -849,11 +868,11 @@ def interest_analysis():
         interest_breakdown = {}
         
         for metric in interest_metrics:
-            total_amount = sum(parseFloat(item.get(metric, 0)) or 0 for item in financial_data)
+            total_amount = sum(parse_float(item.get(metric, 0)) or 0 for item in financial_data)
             if total_amount > 0:
                 interest_breakdown[metric] = {
                     'total_amount': total_amount,
-                    'outlet_count': len([item for item in financial_data if item.get(metric, 0) and parseFloat(item.get(metric, 0)) > 0]),
+                    'outlet_count': len([item for item in financial_data if item.get(metric, 0) and parse_float(item.get(metric, 0)) > 0]),
                     'average_amount': total_amount / len(financial_data) if financial_data else 0
                 }
                 total_interest += total_amount
@@ -863,9 +882,9 @@ def interest_analysis():
         for item in financial_data:
             outlet = item.get('Outlet', 'Unknown')
             manager = item.get('Outlet Manager', 'Unknown')
-            revenue = parseFloat(item.get('TOTAL REVENUE', 0)) or 0
+            revenue = parse_float(item.get('TOTAL REVENUE', 0)) or 0
             
-            outlet_interest = sum(parseFloat(item.get(metric, 0)) or 0 for metric in interest_metrics)
+            outlet_interest = sum(parse_float(item.get(metric, 0)) or 0 for metric in interest_metrics)
             interest_rate = (outlet_interest / revenue * 100) if revenue > 0 else 0
             
             outlet_analysis.append({
@@ -874,7 +893,7 @@ def interest_analysis():
                 'total_interest': outlet_interest,
                 'revenue': revenue,
                 'interest_rate': interest_rate,
-                'interest_breakdown': {metric: parseFloat(item.get(metric, 0)) or 0 for metric in interest_metrics}
+                'interest_breakdown': {metric: parse_float(item.get(metric, 0)) or 0 for metric in interest_metrics}
             })
         
         # Sort by interest rate for efficiency analysis

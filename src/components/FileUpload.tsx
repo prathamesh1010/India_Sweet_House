@@ -16,7 +16,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string>('');
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+  const backendEnv = import.meta.env.VITE_BACKEND_URL?.toString().trim();
+  const BACKEND_URL = (backendEnv && backendEnv !== '')
+    ? backendEnv.replace(/\/$/, '')
+    : '/api/backend';
 
   // Helper to normalize strings (remove NBSP, zero-width chars, collapse whitespace)
   const normStr = (x: any): string => {
@@ -48,7 +51,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
 
       console.log('[Backend] Attempting to connect to:', BACKEND_URL);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
 
       const response = await fetch(`${BACKEND_URL}/process-file`, {
         method: 'POST',

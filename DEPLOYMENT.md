@@ -2,124 +2,72 @@
 
 ## Fixed Issues
 
-The deployment error `"Error: Command "pip3 install" exited with 2"` has been fixed by:
-
-1. **Created `vercel.json`** - Properly configured for Vite/React frontend deployment
-2. **Created `.vercelignore`** - Prevents Vercel from trying to process Python backend files
-3. **Updated FileUpload.tsx** - Uses environment variable for backend URL configuration
+- The Flask backend now deploys alongside the Vite frontend using Vercel’s Python 3.11 serverless runtime (see `api/backend.py`).
+- File uploads are stored in `/tmp` when running on Vercel, solving the previous filesystem write errors.
+- Frontend defaults to `/api/backend` so no manual backend URL is needed for the hosted build.
 
 ## Deployment Steps
 
-### 1. Deploy Frontend to Vercel
+### 1. Deploy to Vercel (Frontend + Serverless Backend)
 
 ```bash
 # Install Vercel CLI (if not already installed)
 npm i -g vercel
 
-# Deploy to Vercel
+# Deploy (interactive)
 vercel
+
+# Deploy to production once ready
+vercel --prod
 ```
 
-Follow the prompts:
-- Set up and deploy: Yes
-- Which scope: Select your account
-- Link to existing project: No
-- Project name: (press Enter or provide name)
-- Directory: ./
-- Override settings: No
+Vercel will:
+1. Run `npm install` and `npm run build` (per `vercel.json`)
+2. Package any files under `api/` as serverless functions
+3. Install `requirements.txt` for the Python runtime
 
-### 2. Configure Environment Variable
+### 2. Optional Environment Variables
 
-After deployment, add the backend URL as an environment variable:
+| Scope        | Variable          | Purpose                                  |
+|--------------|-------------------|------------------------------------------|
+| Frontend     | `VITE_BACKEND_URL`| Override backend endpoint (default `/api/backend`) |
+| Backend      | `ALLOWED_ORIGINS` | Comma-separated list of allowed origins for CORS   |
+| Backend      | `UPLOAD_FOLDER`   | Custom temp folder (defaults to `/tmp` on Vercel)  |
 
-1. Go to your Vercel project dashboard
-2. Navigate to Settings → Environment Variables
-3. Add: `VITE_BACKEND_URL` = `your-backend-url` (see backend deployment options below)
+Only set `VITE_BACKEND_URL` if you plan to host the backend elsewhere.
 
-### 3. Deploy Backend (Choose One Option)
+### 3. Local Development
 
-#### Option A: Deploy to Render (Recommended for Flask)
-
-1. Create account at [render.com](https://render.com)
-2. Click "New +" → "Web Service"
-3. Connect your GitHub repository
-4. Configure:
-   - **Name**: sweetmart-backend
-   - **Environment**: Python 3
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `python backend_api.py`
-5. Deploy and copy the URL
-6. Add this URL to Vercel environment variable `VITE_BACKEND_URL`
-
-#### Option B: Deploy to Railway
-
-1. Create account at [railway.app](https://railway.app)
-2. Click "New Project" → "Deploy from GitHub repo"
-3. Select your repository
-4. Railway will auto-detect Python and deploy
-5. Copy the generated URL
-6. Add this URL to Vercel environment variable `VITE_BACKEND_URL`
-
-#### Option C: Keep Backend Local (Development Only)
-
-For local development:
 ```bash
-# In one terminal - run backend
+# Terminal 1 - Backend
 python backend_api.py
 
-# In another terminal - run frontend
+# Terminal 2 - Frontend
 npm run dev
 ```
 
-### 4. Redeploy Frontend
-
-After adding the environment variable:
-```bash
-vercel --prod
-```
+Set `VITE_BACKEND_URL=http://localhost:5000` in `.env.local` for the frontend when running locally.
 
 ## Project Structure
 
 ```
-├── src/                    # React frontend (deployed to Vercel)
-├── backend_api.py          # Flask backend (deploy separately)
+├── src/                    # React frontend (Vite)
+├── api/backend.py          # Entry point for Vercel serverless Flask app
+├── backend_api.py          # Full Flask application logic (shared locally + Vercel)
 ├── requirements.txt        # Python dependencies
-├── vercel.json            # Vercel configuration
-├── .vercelignore          # Ignore Python files in Vercel
-└── .env.example           # Environment variable template
+├── vercel.json             # Build + function configuration
+├── .vercelignore           # Ignore bulky artifacts only
+└── .env.example            # Environment variable template
 ```
-
-## Environment Variables
-
-### Frontend (Vercel)
-- `VITE_BACKEND_URL` - URL of your deployed Flask backend
-
-### Backend (Render/Railway)
-No additional environment variables required for basic setup.
 
 ## Testing Deployment
 
 1. Visit your Vercel URL
-2. Try uploading an Excel file
-3. Check browser console for any API connection errors
-4. Verify data is processed correctly
+2. Upload an Excel file
+3. Confirm records succeed (check browser console and Vercel function logs if needed)
 
 ## Troubleshooting
 
-### CORS Errors
-If you see CORS errors, ensure your backend has proper CORS configuration:
-```python
-from flask_cors import CORS
-app = Flask(__name__)
-CORS(app, origins=["https://your-vercel-domain.vercel.app"])
-```
-
-### Backend Not Responding
-- Verify the backend URL in Vercel environment variables
-- Check backend logs in Render/Railway dashboard
-- Ensure backend is running and accessible
-
-### Build Failures
-- Clear Vercel cache: `vercel --force`
-- Check build logs in Vercel dashboard
-- Ensure all npm dependencies are in package.json
+- **CORS:** set `ALLOWED_ORIGINS=https://your-vercel-domain.vercel.app` in Vercel if you want to lock it down (default `*`).
+- **Timeouts:** the frontend waits up to 25 seconds; if files still time out, inspect logs in the Vercel “Functions” tab.
+- **Large Dependencies:** ensure the `functions.api/*.py` config in `vercel.json` has enough memory/time for Pandas (already set to 1024 MB / 60s).

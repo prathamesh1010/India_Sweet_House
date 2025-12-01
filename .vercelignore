@@ -1,5 +1,3 @@
-*.py
-requirements.txt
 uploads/
 __pycache__/
 *.pyc
