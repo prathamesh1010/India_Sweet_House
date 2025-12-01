@@ -371,11 +371,16 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       const outlets: Array<{index: number, name: string, manager: string, month: string}> = [];
       
       // Find Month-% column pairs (every outlet has Month and % columns)
+      // Also support simpler formats where columns are just outlets
       for (let colIdx = 1; colIdx < (headerRow?.length || 0); colIdx++) {
         const cellValue = headerRow[colIdx]?.toString().trim() || '';
         const nextCellValue = headerRow[colIdx + 1]?.toString().trim() || '';
         
-        if (monthPattern.test(cellValue) && (nextCellValue === '%' || nextCellValue.includes('%'))) {
+        // Strict pattern: Month column followed by % column
+        const isMonthPair = (monthPattern.test(cellValue) || cellValue.includes('-2')) && 
+                           (nextCellValue === '%' || nextCellValue.includes('%'));
+                           
+        if (isMonthPair) {
           const outletName = outletRow[colIdx]?.toString().trim() || `Outlet ${outlets.length + 1}`;
           const managerName = managerRow[colIdx]?.toString().trim() || 'Manager';
           const month = cellValue;
@@ -388,6 +393,46 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
           });
           
           colIdx++; // Skip % column
+        }
+      }
+      
+      // Fallback: If no outlets found with strict pattern, try to find any columns with data
+      if (outlets.length === 0) {
+        console.log('[processOutletWiseWorksheet] Strict pattern failed, trying loose column detection');
+        
+        // Look for the "TOTAL REVENUE" row to see which columns have numbers
+        const revenueRow = rawData.find(row => 
+          row && row[0] && row[0].toString().toLowerCase().includes('total revenue')
+        );
+        
+        if (revenueRow) {
+          for (let colIdx = 1; colIdx < revenueRow.length; colIdx++) {
+            const val = parseFloat(revenueRow[colIdx]);
+            // If it's a number and not a percentage (usually percentages are small < 1 or > 100 depending on format, but revenue is usually large)
+            // Or just take every column that looks like a number
+            if (!isNaN(val) && val !== 0) {
+               // Check if next column is likely a percentage (often small number or empty)
+               const nextVal = parseFloat(revenueRow[colIdx + 1]);
+               const isNextPercentage = !isNaN(nextVal) && nextVal < 100 && nextVal > -100; // Heuristic
+               
+               const outletName = (outletRow && outletRow[colIdx]) ? outletRow[colIdx].toString().trim() : `Outlet ${outlets.length + 1}`;
+               
+               // Skip if it looks like a "Total" column
+               if (outletName.toLowerCase().includes('total') || outletName.toLowerCase().includes('consolidated')) continue;
+
+               outlets.push({
+                index: colIdx,
+                name: outletName,
+                manager: (managerRow && managerRow[colIdx]) ? managerRow[colIdx].toString().trim() : 'Manager',
+                month: currentDate
+              });
+              
+              // If we think the next column is a percentage, skip it
+              // But be careful not to skip actual data columns. 
+              // In the strict format, we KNOW it's a % column. Here we are guessing.
+              // Let's just take every column for now, unless we are sure.
+            }
+          }
         }
       }
       
