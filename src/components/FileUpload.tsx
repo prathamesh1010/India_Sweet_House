@@ -19,7 +19,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
   const backendEnv = import.meta.env.VITE_BACKEND_URL?.toString().trim();
   const BACKEND_URL = (backendEnv && backendEnv !== '')
     ? backendEnv.replace(/\/$/, '')
-    : '/api/backend';
+    : '';
 
   // Helper to normalize strings (remove NBSP, zero-width chars, collapse whitespace)
   const normStr = (x: any): string => {
@@ -82,7 +82,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
     const validTypes = ['text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
     const isValidType = validTypes.includes(file.type) || file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
     const isValidSize = file.size <= 10 * 1024 * 1024;
-    
+
     if (!isValidType) {
       setError('Please upload a CSV or Excel file');
       return false;
@@ -97,7 +97,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
   const processFile = useCallback((file: File) => {
     console.log('[FileUpload] Processing file:', file.name);
     if (!validateFile(file)) return;
-    
+
     setIsProcessing(true);
     setError('');
 
@@ -112,7 +112,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
     console.log('[Excel] ========== STARTING EXCEL FILE PROCESSING ==========');
     console.log('[Excel] File name:', file.name);
     console.log('[Excel] File size:', file.size, 'bytes');
-    
+
     try {
       // Try backend first
       try {
@@ -129,10 +129,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       }
 
       console.log('[Excel] Starting frontend fallback processing...');
-      
+
       // Frontend fallback with complete implementation
       const reader = new FileReader();
-      
+
       reader.onload = async (e) => {
         try {
           console.log('[Excel] FileReader.onload triggered');
@@ -141,43 +141,43 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
             console.error('[Excel] No data received from FileReader');
             throw new Error('No data received');
           }
-          
+
           console.log('[Excel] Data received, size:', (data as ArrayBuffer).byteLength, 'bytes');
           console.log('[Excel] Reading workbook with XLSX.read...');
           const workbook = XLSX.read(data, { type: 'array' });
           console.log('[Excel] ✓ Workbook parsed successfully');
           console.log('[Excel] Sheets found:', workbook.SheetNames.join(', '));
-          
+
           // Check for "Outlet wise" sheet
-          let sheetName = workbook.SheetNames.find(name => 
+          let sheetName = workbook.SheetNames.find(name =>
             normUpper(name).includes('OUTLET') && normUpper(name).includes('WISE')
           );
-          
+
           if (!sheetName) {
             sheetName = workbook.SheetNames[0];
             console.log('[Excel] Using first sheet:', sheetName);
           } else {
             console.log('[Excel] Found "Outlet wise" sheet:', sheetName);
           }
-          
+
           const worksheet = workbook.Sheets[sheetName];
-          
+
           console.log('[Excel] Converting sheet to JSON with header:1, raw:false...');
-          const rawData: any[][] = XLSX.utils.sheet_to_json(worksheet, { 
-            header: 1, 
+          const rawData: any[][] = XLSX.utils.sheet_to_json(worksheet, {
+            header: 1,
             defval: null,
             raw: false
           });
-          
+
           console.log('[Excel] Extracted', rawData.length, 'rows');
           console.log('[Excel] First row sample:', rawData[0]?.slice(0, 10));
           console.log('[Excel] Second row sample:', rawData[1]?.slice(0, 10));
           console.log('[Excel] Third row sample:', rawData[2]?.slice(0, 10));
-          
+
           console.log('[Excel] Calling processOutletWiseData...');
           const processedData = await processOutletWiseData(rawData, file.name);
           console.log('[Excel] processOutletWiseData returned:', processedData.length, 'records');
-          
+
           if (processedData.length > 0) {
             console.log('[Excel] ✓✓✓ SUCCESS! Processed', processedData.length, 'records');
             console.log('[Excel] Sample record:', processedData[0]);
@@ -198,12 +198,12 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
           setIsProcessing(false);
         }
       };
-      
+
       reader.onerror = () => {
         setError('Error reading Excel file');
         setIsProcessing(false);
       };
-      
+
       reader.readAsArrayBuffer(file);
     } catch (err: any) {
       setError(`Error: ${err.message}`);
@@ -216,11 +216,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
     console.log('[Process] Starting outlet-wise processing');
     console.log('[Process] Raw data rows:', rawData.length);
     console.log('[Process] First 3 rows:', rawData.slice(0, 3));
-    
+
     // Step 1: Detect header row (where "PARTICULARS" is located)
     const { hdrRow, partCol } = detectHeader(rawData);
     console.log(`[Process] Header at row=${hdrRow}, particulars_col=${partCol}`);
-    
+
     if (hdrRow === -1) {
       console.error('[Process] Could not detect header row');
       console.error('[Process] Dumping first 10 rows for debugging:');
@@ -229,44 +229,44 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       });
       return [];
     }
-    
+
     const outletRow = Math.max(hdrRow - 1, 0);
     const managerRow = Math.max(hdrRow - 3, 0);
-    
+
     // Step 2: Build column-indexed data starting from header row
     const headerRowData = rawData[hdrRow] || [];
     const dataRows = rawData.slice(hdrRow + 1);
-    
+
     // Required metrics to extract
     const requiredMetrics = [
       "Direct Income", "TOTAL REVENUE", "COGS", "Outlet Expenses",
       "EBIDTA", "Finance Cost", "PBT", "WASTAGE",
-      "01-Bank Charges", "02-Interest on Borrowings", 
+      "01-Bank Charges", "02-Interest on Borrowings",
       "03-Interest on Vehicle Loan", "04-MG"
     ];
-    
+
     // Step 3: Filter rows to only required metrics - use flexible matching
-    const metricsData: Array<{particular: string, values: any[]}> = [];
+    const metricsData: Array<{ particular: string, values: any[] }> = [];
     for (const row of dataRows) {
       const particular = normStr(row[partCol]);
       const particularUpper = normUpper(particular);
-      
+
       // Check if this row contains any required metric (flexible matching)
       const matchesMetric = requiredMetrics.some(m => {
         const metricUpper = normUpper(m);
-        return particularUpper.includes(metricUpper) || 
-               metricUpper.includes(particularUpper) ||
-               particularUpper === metricUpper;
+        return particularUpper.includes(metricUpper) ||
+          metricUpper.includes(particularUpper) ||
+          particularUpper === metricUpper;
       });
-      
+
       if (matchesMetric && particular.length > 0) {
         console.log('[Process] Matched metric:', particular);
         metricsData.push({ particular, values: row });
       }
     }
-    
+
     console.log('[Process] Total metrics matched:', metricsData.length);
-    
+
     if (metricsData.length === 0) {
       console.error('[Process] No required metrics found in data');
       console.error('[Process] Available particulars (first 30):');
@@ -275,24 +275,24 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       console.error('[Process] Required metrics are:', requiredMetrics);
       return [];
     }
-    
+
     console.log('[Process] Found', metricsData.length, 'metric rows');
-    
+
     // Step 4: Detect Month-% column pairs
     console.log('[Process] Step 4: Detecting Month-% column pairs...');
     console.log('[Process] Header row length:', headerRowData.length);
     console.log('[Process] Scanning from column', partCol + 1, 'to', headerRowData.length - 1);
-    
+
     const monthPattern = /^[A-Za-z]+-\d{2}(?:\.\d+)?$/;
     const pctPattern = /^%(?:\.\d+)?$/;
-    const outletBlocks: Array<{valIdx: number, monthCol: string, pctCol: string}> = [];
-    
+    const outletBlocks: Array<{ valIdx: number, monthCol: string, pctCol: string }> = [];
+
     for (let i = partCol + 1; i < headerRowData.length - 1; i++) {
       const colName = normStr(headerRowData[i]);
       const nextName = normStr(headerRowData[i + 1]);
-      
-      console.log(`[Process] Col ${i}: "${colName}" | Col ${i+1}: "${nextName}"`);
-      
+
+      console.log(`[Process] Col ${i}: "${colName}" | Col ${i + 1}: "${nextName}"`);
+
       if (monthPattern.test(colName) && (nextName === '%' || pctPattern.test(nextName))) {
         console.log(`[Process] ✓ MATCHED Month-% pair at column ${i}: "${colName}" + "${nextName}"`);
         outletBlocks.push({
@@ -302,7 +302,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         });
       }
     }
-    
+
     if (outletBlocks.length === 0) {
       console.error('[Process] No Month-% pairs detected');
       console.error('[Process] Header row content:', headerRowData);
@@ -310,25 +310,25 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       console.error('[Process] Looking for patterns like: "June-25" followed by "%"');
       return [];
     }
-    
+
     console.log('[Process] Detected', outletBlocks.length, 'outlet blocks');
-    
+
     // Step 5: Extract outlet/manager names and build final data
     const finalRows: any[] = [];
     const currentDate = new Date().toISOString().split('T')[0];
-    
+
     for (const block of outletBlocks) {
       const outletName = getName(rawData, outletRow, block.valIdx);
       const managerName = getName(rawData, managerRow, block.valIdx);
-      
+
       // Skip consolidated summary columns
       if (normUpper(outletName).includes('CONSOLIDATED') || normUpper(outletName).includes('SUMMARY')) {
         continue;
       }
-      
+
       const monthLabel = block.monthCol;
       const month = monthLabel.includes('-') ? monthLabel.split('-')[0] : monthLabel;
-      
+
       const row: any = {
         'Outlet': outletName || `Outlet ${block.valIdx}`,
         'Outlet Manager': managerName || `Manager ${block.valIdx}`,
@@ -336,13 +336,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         'Date': currentDate,
         'Upload Filename': filename
       };
-      
+
       // Extract all metric values
       for (const metric of metricsData) {
         const value = metric.values[block.valIdx];
         row[metric.particular] = cleanNumber(value);
       }
-      
+
       // Add standard fields for compatibility
       row['Product Name'] = `Financial Data - ${month}`;
       row['Category'] = 'Financial Report';
@@ -350,15 +350,15 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       row['Cashier'] = row['Outlet Manager'];
       row['Total Amount (₹)'] = row['TOTAL REVENUE'] || 0;
       row['Quantity'] = 1;
-      
+
       finalRows.push(row);
     }
-    
+
     console.log('[Process] Final output:', finalRows.length, 'records');
     return finalRows;
   };
 
-  const detectHeader = (rawData: any[][]): {hdrRow: number, partCol: number} => {
+  const detectHeader = (rawData: any[][]): { hdrRow: number, partCol: number } => {
     // A) Look for exact "PARTICULARS"
     for (let i = 0; i < Math.min(50, rawData.length); i++) {
       const row = rawData[i] || [];
@@ -368,7 +368,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         }
       }
     }
-    
+
     // B) Look for substring "PARTICULARS"
     for (let i = 0; i < Math.min(50, rawData.length); i++) {
       const row = rawData[i] || [];
@@ -379,12 +379,12 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         }
       }
     }
-    
+
     // C) Fallback: row with most Month-YY tokens
     const monthPattern = /^[A-Z]+-\d{2}(?:\.\d+)?$/;
     let maxCount = 0;
     let bestRow = 0;
-    
+
     for (let i = 0; i < Math.min(50, rawData.length); i++) {
       const row = rawData[i] || [];
       const count = row.filter(cell => monthPattern.test(normUpper(cell))).length;
@@ -393,7 +393,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         bestRow = i;
       }
     }
-    
+
     if (maxCount > 0) {
       const row = rawData[bestRow] || [];
       let partCol = 0;
@@ -405,7 +405,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       }
       return { hdrRow: bestRow, partCol };
     }
-    
+
     return { hdrRow: -1, partCol: 0 };
   };
 
@@ -414,7 +414,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
     for (let up = 0; up <= maxUp; up++) {
       const r = baseRow - up;
       if (r < 0) break;
-      
+
       const offsets = [0, -1, 1, -2, 2];
       for (const dx of offsets) {
         const c = baseCol + dx;
@@ -438,7 +438,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
           if (results.errors.length > 0) {
             console.warn('[CSV] Parsing warnings:', results.errors);
           }
-          
+
           const headers = Object.keys(results.data[0] || {});
           const requiredFields = [
             { name: 'Date/Month', options: ['Date', 'Month'] },
@@ -447,11 +447,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
             { name: 'Quantity', options: ['Quantity', 'Qty'] },
             { name: 'Total Amount', options: ['Total Amount (₹)', 'Total Sales'] }
           ];
-          
-          const missingFields = requiredFields.filter(field => 
+
+          const missingFields = requiredFields.filter(field =>
             !field.options.some(option => headers.includes(option))
           );
-          
+
           if (missingFields.length > 0) {
             setError(`Missing columns: ${missingFields.map(f => f.name).join(', ')}`);
             setIsProcessing(false);
@@ -509,11 +509,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         </div>
 
         <div
-          className={`relative border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 ${
-            isDragOver 
-              ? 'border-primary bg-primary/5 shadow-glow' 
+          className={`relative border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 ${isDragOver
+              ? 'border-primary bg-primary/5 shadow-glow'
               : 'border-border hover:border-primary/50 hover:bg-primary/5'
-          }`}
+            }`}
           onDrop={handleDrop}
           onDragOver={(e) => {
             e.preventDefault();
@@ -528,16 +527,15 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
             onChange={handleFileSelect}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           />
-          
+
           <div className="space-y-2">
             <div className="flex justify-center">
-              <div className={`p-2 rounded-lg transition-colors ${
-                isDragOver ? 'bg-primary text-white' : 'bg-primary/10 text-primary'
-              }`}>
+              <div className={`p-2 rounded-lg transition-colors ${isDragOver ? 'bg-primary text-white' : 'bg-primary/10 text-primary'
+                }`}>
                 <Upload className="h-5 w-5" />
               </div>
             </div>
-            
+
             <div>
               <p className="text-xs font-medium text-foreground">
                 Drop files here or click to browse
