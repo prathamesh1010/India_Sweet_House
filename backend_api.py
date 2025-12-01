@@ -10,7 +10,11 @@ import traceback
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend communication
+
+# Enable CORS for frontend communication
+# In production, specify allowed origins
+allowed_origins = os.environ.get('ALLOWED_ORIGINS', '*').split(',')
+CORS(app, origins=allowed_origins if allowed_origins != ['*'] else '*')
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'

@@ -17,8 +17,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string>('');
 
-  // Backend API configuration
-  const BACKEND_URL = 'http://localhost:5000';
+  // Backend API configuration - use environment variable or fallback to localhost
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
   const processWithBackend = async (file: File) => {
     try {
