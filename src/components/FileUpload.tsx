@@ -24,20 +24,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
   const cleanNumber = (val: any): number => {
     if (typeof val === 'number') return val;
     if (!val) return 0;
-    
-    // Convert to string and trim
     let str = val.toString().trim();
-    
     // Handle accounting format (123) -> -123
     if (str.startsWith('(') && str.endsWith(')')) {
       str = '-' + str.slice(1, -1);
     }
-    
     // Remove all non-numeric characters except dot and minus
-    // But be careful with dates like "Jun-25" -> "-25"
-    // We assume this is called on fields expected to be numbers
     str = str.replace(/[^0-9.-]/g, '');
-    
     const num = parseFloat(str);
     return isNaN(num) ? 0 : num;
   };
@@ -110,32 +103,28 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
 
   const processExcelFile = useCallback(async (file: File) => {
     try {
-      console.log('[FileUpload] Processing Excel file:', file.name);
-      
       // Try backend processing first for Excel files
-      try {
-        const backendResult = await processWithBackend(file);
-        if (backendResult.success) {
-          console.log('[FileUpload] Backend returned', backendResult.data?.length || 0, 'records');
-          setUploadedFiles(prev => [...prev, file.name]);
-          onFileUpload(backendResult.data, file.name);
-          setIsProcessing(false);
-          
-          // Show special message for multi-worksheet files
-          if (backendResult.message && backendResult.message.includes('Outlet wise')) {
-            console.log('Multi-worksheet file processed successfully:', backendResult.message);
-          }
-          return;
-        } else {
-          console.warn('[FileUpload] Backend processing failed, falling back to frontend:', backendResult.error);
+      const backendResult = await processWithBackend(file);
+      if (backendResult.success) {
+        setUploadedFiles(prev => [...prev, file.name]);
+        onFileUpload(backendResult.data, file.name);
+        setIsProcessing(false);
+        
+        // Show special message for multi-worksheet files
+        if (backendResult.message && backendResult.message.includes('Outlet wise')) {
+          console.log('Multi-worksheet file processed successfully:', backendResult.message);
         }
-      } catch (backendError) {
-        console.warn('[FileUpload] Backend not available, using frontend processing');
+        return;
+      } else {
+        console.warn('Backend processing failed, falling back to frontend:', backendResult.error);
       }
+    } catch (backendError) {
+      console.warn('Backend not available, using frontend processing:', backendError);
+    }
 
-      console.log('[FileUpload] Starting frontend fallback processing');
-      
-      // Frontend fallback processing
+    // Fallback to frontend processing
+    console.log('[FileUpload] Starting frontend fallback processing');
+    try {
       const reader = new FileReader();
       
       reader.onload = async (e) => {
@@ -195,13 +184,12 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       };
       
       reader.onerror = () => {
-        console.error('[FileUpload] Error reading Excel file');
         setError('Error reading Excel file.');
         setIsProcessing(false);
       };
       
       reader.readAsArrayBuffer(file);
-    } catch (err: any) {
+    } catch (err) {
       setError(`Error processing Excel file: ${err.message}`);
       setIsProcessing(false);
     }
@@ -272,49 +260,33 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         console.log('[processFinancialReport] Outlet wise processing returned no data, trying other formats...');
       }
       
-      // Check if this is an outlet-based financial report (outlets in rows, like data5.xlsx)
+      // Check if this is an outlet-based financial report (outlets in rows)
       // Scan first 5 rows for header
-      let outletBasedHeaderRow = -1;
       for (let i = 0; i < Math.min(5, rawData.length); i++) {
          const row = rawData[i];
          if (!row || row.length < 5) continue;
          
-         // Check first few columns for "Outlet" or "Outlet Name"
          const hasOutletColumn = row.slice(0, 5).some(cell => 
            cell?.toString().toLowerCase().includes('outlet') && 
-           !cell?.toString().toLowerCase().includes('expenses') &&
-           !cell?.toString().toLowerCase().includes('summary')
+           !cell?.toString().toLowerCase().includes('expenses')
          );
          
          const hasManager = row.slice(0, 5).some(cell => 
            cell?.toString().toLowerCase().includes('manager')
          );
          
-         if (hasOutletColumn && hasManager) {
-            outletBasedHeaderRow = i;
-            break;
+         const hasFinancialMetrics = row.some(cell => 
+           cell?.toString().toLowerCase().includes('direct income') ||
+           cell?.toString().toLowerCase().includes('total revenue') ||
+           cell?.toString().toLowerCase().includes('cogs') ||
+           cell?.toString().toLowerCase().includes('ebitda') ||
+           cell?.toString().toLowerCase().includes('pbt')
+         );
+
+         if (hasOutletColumn && hasManager && hasFinancialMetrics) {
+           console.log('[processFinancialReport] Using outlet-based report processing');
+           return processOutletBasedReport(rawData, filename);
          }
-      }
-
-      if (outletBasedHeaderRow !== -1) {
-        const row = rawData[outletBasedHeaderRow];
-        const hasFinancialMetrics = row.some(cell => 
-          cell?.toString().toLowerCase().includes('direct income') ||
-          cell?.toString().toLowerCase().includes('total revenue') ||
-          cell?.toString().toLowerCase().includes('cogs') ||
-          cell?.toString().toLowerCase().includes('ebitda') ||
-          cell?.toString().toLowerCase().includes('pbt')
-        );
-
-        console.log('[processFinancialReport] Format detection:', {
-          outletBasedHeaderRow,
-          hasFinancialMetrics
-        });
-
-        if (hasFinancialMetrics) {
-          console.log('[processFinancialReport] Using outlet-based report processing');
-          return processOutletBasedReport(rawData, filename);
-        }
       }
 
       // Fallback to original cashier-based processing
@@ -327,10 +299,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
   };
 
   const detectOutletWiseFormat = (rawData: any[][]): boolean => {
-    // Check if this looks like "Outlet wise" format where:
-    // - First column contains metric names (Particulars)
-    // - Subsequent columns contain outlet data with Month-% pairs
-    
     if (!rawData || rawData.length < 5) return false;
     
     const requiredMetrics = [
@@ -338,23 +306,19 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       'ebidta', 'ebitda', 'finance cost', 'pbt', 'wastage'
     ];
     
-    // Look for "Particulars" column in first few rows
     let hasParticulars = false;
     let hasMetrics = 0;
     
-    // Scan first 20 rows (increased from 10)
+    // Scan first 20 rows and first 10 columns
     for (let i = 0; i < Math.min(20, rawData.length); i++) {
       const row = rawData[i];
       if (!row) continue;
       
-      // Check first 10 columns (increased from 1)
       for (let j = 0; j < Math.min(10, row.length); j++) {
         const cell = row[j]?.toString().toLowerCase() || '';
         if (cell.includes('particular')) {
           hasParticulars = true;
         }
-        
-        // Count how many required metrics we find
         for (const metric of requiredMetrics) {
           if (cell.includes(metric)) {
             hasMetrics++;
@@ -378,12 +342,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       let particularsColIndex = 0;
       const monthPattern = /^[A-Za-z]+-\d{2}$/;
       
-      // Scan first 20 rows and all columns for "Particulars"
+      // Scan first 20 rows and first 10 columns for "Particulars"
       for (let i = 0; i < Math.min(20, rawData.length); i++) {
         const row = rawData[i];
         if (!row) continue;
         
-        // Check all cells in the row
         for (let j = 0; j < Math.min(10, row.length); j++) {
           const cell = row[j]?.toString().toLowerCase() || '';
           if (cell.includes('particular')) {
@@ -406,11 +369,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
             cell && monthPattern.test(cell.toString().trim())
           );
           if (hasMonthPattern) {
-            headerRowIndex = Math.max(0, i - 1); // Assume header is row before months? Or same row?
-            // Usually months are in the header row or the row below header
-            // If we found months, let's assume this IS the header row for columns
             headerRowIndex = i;
-            console.log(`[processOutletWiseWorksheet] Found month pattern at row ${i}, using as header`);
+            console.log(`[processOutletWiseWorksheet] Found month pattern at row ${i}`);
             break;
           }
         }
@@ -421,15 +381,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         headerRowIndex = 0;
       }
       
-      // Extract outlet names and managers from rows above header
-      // Adjust for particularsColIndex if needed (though usually outlets are to the right)
-      // If headerRowIndex is 0, we can't find outlet names above it.
-      // But usually "Outlet wise" sheet has Outlet Name in row 0, Manager in row 1, Header in row 2.
-      
+      // Extract outlet names from rows above header
       const outletRow = headerRowIndex > 0 ? rawData[headerRowIndex - 1] : [];
-      const managerRow = headerRowIndex > 2 ? rawData[headerRowIndex - 3] : []; // Heuristic
+      const managerRow = headerRowIndex > 2 ? rawData[headerRowIndex - 3] : [];
       
-      // Find metric rows and outlet columns
+      // Required metrics to extract
       const requiredMetrics = [
         'Direct Income', 'TOTAL REVENUE', 'COGS', 'Outlet Expenses',
         'EBIDTA', 'Finance Cost', 'PBT', 'WASTAGE',
@@ -441,19 +397,16 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       const headerRow = rawData[headerRowIndex];
       const outlets: Array<{index: number, name: string, manager: string, month: string}> = [];
       
-      // Find Month-% column pairs (every outlet has Month and % columns)
-      // Start scanning from particularsColIndex + 1
+      // Find Month-% column pairs
       if (headerRow) {
         for (let colIdx = particularsColIndex + 1; colIdx < headerRow.length; colIdx++) {
           const cellValue = headerRow[colIdx]?.toString().trim() || '';
           const nextCellValue = headerRow[colIdx + 1]?.toString().trim() || '';
           
-          // Strict pattern: Month column followed by % column
           const isMonthPair = (monthPattern.test(cellValue) || cellValue.includes('-2')) && 
                              (nextCellValue === '%' || nextCellValue.includes('%'));
                              
           if (isMonthPair) {
-            // Try to find outlet name in previous rows
             let outletName = `Outlet ${outlets.length + 1}`;
             if (outletRow && outletRow[colIdx]) outletName = outletRow[colIdx].toString().trim();
             else if (headerRowIndex > 1 && rawData[headerRowIndex-2] && rawData[headerRowIndex-2][colIdx]) {
@@ -463,13 +416,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
             let managerName = 'Manager';
             if (managerRow && managerRow[colIdx]) managerName = managerRow[colIdx].toString().trim();
 
-            const month = cellValue;
-            
             outlets.push({
               index: colIdx,
               name: outletName,
               manager: managerName,
-              month: month
+              month: cellValue
             });
             
             colIdx++; // Skip % column
@@ -477,12 +428,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         }
       }
       
-      // Fallback: If no outlets found with strict pattern, try to find any columns with data
+      // Fallback: find columns with numeric data in "TOTAL REVENUE" row
       if (outlets.length === 0) {
         console.log('[processOutletWiseWorksheet] Strict pattern failed, trying loose column detection');
         
-        // Look for the "TOTAL REVENUE" row to see which columns have numbers
-        // Use particularsColIndex to find the metric name
         const revenueRow = rawData.find(row => 
           row && row[particularsColIndex] && row[particularsColIndex].toString().toLowerCase().includes('total revenue')
         );
@@ -490,17 +439,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         if (revenueRow) {
           for (let colIdx = particularsColIndex + 1; colIdx < revenueRow.length; colIdx++) {
             const val = cleanNumber(revenueRow[colIdx]);
-            // If it's a number and not a percentage (usually percentages are small < 1 or > 100 depending on format, but revenue is usually large)
-            // Or just take every column that looks like a number
             if (val !== 0) {
-               // Check if next column is likely a percentage (often small number or empty)
-               const nextVal = cleanNumber(revenueRow[colIdx + 1]);
-               const isNextPercentage = nextVal < 100 && nextVal > -100; // Heuristic
-               
                let outletName = `Outlet ${outlets.length + 1}`;
                if (outletRow && outletRow[colIdx]) outletName = outletRow[colIdx].toString().trim();
                
-               // Skip if it looks like a "Total" column
                if (outletName.toLowerCase().includes('total') || outletName.toLowerCase().includes('consolidated')) continue;
 
                outlets.push({
@@ -509,11 +451,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
                 manager: (managerRow && managerRow[colIdx]) ? managerRow[colIdx].toString().trim() : 'Manager',
                 month: currentDate
               });
-              
-              // If we think the next column is a percentage, skip it
-              // But be careful not to skip actual data columns. 
-              // In the strict format, we KNOW it's a % column. Here we are guessing.
-              // Let's just take every column for now, unless we are sure.
             }
           }
         }
@@ -522,8 +459,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       console.log(`[processOutletWiseWorksheet] Found ${outlets.length} outlets`);
       
       if (outlets.length === 0) {
-        console.warn('[processOutletWiseWorksheet] No outlets found in expected format');
-        // Return empty array to try other processors
+        console.warn('[processOutletWiseWorksheet] No outlets found');
         return [];
       }
       
@@ -531,7 +467,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       for (const outlet of outlets) {
         const outletData: any = {
           'Outlet': outlet.name,
-
           'Outlet Name': outlet.name,
           'Outlet Manager': outlet.manager,
           'Month': outlet.month || currentDate,
@@ -563,7 +498,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
           const metricName = row[particularsColIndex]?.toString().trim() || '';
           if (!metricName) continue;
           
-          // Check if this is a required metric
           const matchedMetric = requiredMetrics.find(m => 
             metricName.toUpperCase().includes(m.toUpperCase()) ||
             m.toUpperCase().includes(metricName.toUpperCase())
@@ -573,7 +507,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
             const value = cleanNumber(row[outlet.index]);
             outletData[matchedMetric] = value;
             
-            // Add aliases
             if (matchedMetric === 'EBIDTA') outletData['EBITDA'] = value;
             if (matchedMetric === 'TOTAL REVENUE') {
               outletData['Total Amount (₹)'] = value;
@@ -584,7 +517,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
           }
         }
         
-        // Add Finance Cost as sum of interest components if not present
         if (!outletData['Finance Cost']) {
           outletData['Finance Cost'] = 
             (outletData['01-Bank Charges'] || 0) +
@@ -613,10 +545,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       const processedData: any[] = [];
       const currentDate = new Date().toISOString().split('T')[0];
       
-      // Find the header row
-      let headerRow = 0;
-      const firstRow = rawData[0];
-      
       // Skip header row and process data rows
       for (let i = 1; i < rawData.length; i++) {
         const row = rawData[i];
@@ -631,23 +559,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
             outletName.toLowerCase().includes('outlet') ||
             outletName.toLowerCase().includes('consolidated')) continue;
         
-        // Extract all available financial metrics (handle variable column positions)
-        const directIncome = cleanNumber(row[3]);
+        // Create a single record per outlet with all financial metrics as columns
         const totalRevenue = cleanNumber(row[4]);
-        const cogs = cleanNumber(row[5]);
-        const outletExpenses = cleanNumber(row[6]);
         const ebitda = cleanNumber(row[7]);
-        const financeCost = cleanNumber(row[8]);
         const pbt = cleanNumber(row[9]);
-        const wastage = cleanNumber(row[10]);
         
-        // Additional interest-related metrics if available
-        const bankCharges = cleanNumber(row[11]);
-        const interestOnBorrowings = cleanNumber(row[12]);
-        const interestOnVehicleLoan = cleanNumber(row[13]);
-        const mg = cleanNumber(row[14]);
-        
-        // Create a comprehensive record per outlet
         const outletRecord = {
           // Core outlet information
           'Outlet': outletName,
@@ -656,21 +572,15 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
           'Month': month || currentDate,
           
           // Financial metrics as separate columns
-          'Direct Income': directIncome,
+          'Direct Income': cleanNumber(row[3]),
           'TOTAL REVENUE': totalRevenue,
-          'COGS': cogs,
-          'Outlet Expenses': outletExpenses,
+          'COGS': cleanNumber(row[5]),
+          'Outlet Expenses': cleanNumber(row[6]),
           'EBIDTA': ebitda,
-          'EBITDA': ebitda, // Both spellings
-          'Finance Cost': financeCost,
+          'EBITDA': ebitda,
+          'Finance Cost': cleanNumber(row[8]),
           'PBT': pbt,
-          'WASTAGE': wastage,
-          
-          // Interest breakdown
-          '01-Bank Charges': bankCharges,
-          '02-Interest on Borrowings': interestOnBorrowings,
-          '03-Interest on Vehicle Loan': interestOnVehicleLoan,
-          '04-MG': mg,
+          'WASTAGE': cleanNumber(row[10]),
           
           // Additional fields for compatibility with existing analytics
           Date: currentDate,
@@ -741,33 +651,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         }
       }
 
-      // More lenient fallback: try to extract ANY non-empty strings from first few rows
-      if (headerRowIndex === -1 || cashierNames.length === 0) {
-        for (let i = 0; i < Math.min(3, rawData.length); i++) {
-          const row = rawData[i];
-          if (row && row.length > 2) {
-            const nonEmptyCells = row
-              .filter((cell, index) => 
-                index > 0 && 
-                cell && 
-                cell.toString().trim() !== '' &&
-                !cell.toString().includes('Unnamed')
-              )
-              .map(cell => cell.toString().trim());
-            
-            if (nonEmptyCells.length > 0) {
-              headerRowIndex = i;
-              cashierNames = nonEmptyCells;
-              break;
-            }
-          }
-        }
-      }
-
       // Ultimate fallback: create generic outlet names if still nothing found
       if (cashierNames.length === 0) {
-        console.warn('No cashier names found, using generic processing');
-        // Use generic names based on data structure
+        console.warn('[processCashierBasedReport] No cashier names found, using generic processing');
         const maxColumns = Math.max(...rawData.map(row => row ? row.length : 0));
         for (let i = 1; i < Math.min(maxColumns, 10); i++) {
           cashierNames.push(`Outlet ${i}`);
@@ -779,38 +665,38 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       const processedData: any[] = [];
       const currentDate = new Date().toISOString().split('T')[0];
       
-      // Start from row after header
-      const startRow = Math.max(1, headerRowIndex + 1);
+      // Start from row 2 or 3 to skip headers
+      const startRow = Math.max(2, headerRowIndex + 1);
       
-      // Try to process data rows
-      for (let i = startRow; i < rawData.length; i++) {
+      for (let i = startRow; i < Math.min(rawData.length, 50); i++) { // Limit to first 50 rows for testing
         const row = rawData[i];
-        if (!row || row.length < 2) continue;
+        if (!row || row.length < 3) continue;
         
-        const firstCell = row[0];
-        if (!firstCell) continue;
+        const metricName = row[0];
+        if (!metricName || typeof metricName !== 'string' || metricName.trim() === '') continue;
         
-        const metricName = firstCell.toString().trim();
-        if (metricName === '' || metricName.toLowerCase() === 'nan') continue;
+        // Skip empty rows and section headers
+        if (metricName.includes('NaN') || metricName.includes('nan') || metricName.trim() === '' || metricName === null) continue;
         
-        // Process data for each cashier/outlet
+        // Process each cashier's data
         // Try different column patterns: every 3 columns (amount, %, blank) or single columns
         let dataFound = false;
         
         // Pattern 1: Every 3rd column (amount, percentage, blank)
         let cashierIndex = 0;
         for (let colIndex = 1; colIndex < row.length && cashierIndex < cashierNames.length; colIndex += 3) {
+          const cashierName = cashierNames[cashierIndex];
           const amount = cleanNumber(row[colIndex]);
           const percentage = cleanNumber(row[colIndex + 1]);
           
-          if (amount !== 0 || percentage !== 0) {
+          if (amount !== 0 || percentage !== 0) { // Include rows with data
             dataFound = true;
             processedData.push({
               Date: currentDate,
-              'Product Name': metricName,
+              'Product Name': metricName.trim(),
               Category: 'Financial Metric',
               Branch: 'All Outlets',
-              Cashier: cashierNames[cashierIndex] || `Outlet ${cashierIndex + 1}`,
+              Cashier: cashierName,
               'Customer Type': 'Summary Data',
               'Payment Mode': 'N/A',
               'Total Amount (₹)': amount,
@@ -819,21 +705,22 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
               'Discount (%)': 0,
               'GST (%)': 0,
               'Gross Amount': amount,
-              PBT: amount * 0.1,
-              EBITDA: amount * 0.15,
+              PBT: amount * 0.1, // Estimate 10% PBT
+              EBITDA: amount * 0.15, // Estimate 15% EBITDA
               'Upload Filename': filename,
               'Metric Type': 'Financial Summary',
               'Percentage': percentage,
+              // Add the expected column names for compatibility
               Month: currentDate,
-              'Item Name': metricName,
+              'Item Name': metricName.trim(),
               'Store Name': 'All Outlets',
-              'Cluster Manager': cashierNames[cashierIndex] || `Outlet ${cashierIndex + 1}`,
+              'Cluster Manager': cashierName,
               'Sales Type': 'Summary Data',
               'Payment Type': 'N/A',
               'Total Sales': amount,
               Qty: 1,
-              'Outlet': cashierNames[cashierIndex] || `Outlet ${cashierIndex + 1}`,
-              'Outlet Manager': cashierNames[cashierIndex] || `Manager ${cashierIndex + 1}`
+              'Outlet': cashierName,
+              'Outlet Manager': cashierName
             });
           }
           cashierIndex++;
@@ -844,10 +731,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
           for (let colIndex = 1; colIndex < Math.min(row.length, cashierNames.length + 1); colIndex++) {
             const amount = cleanNumber(row[colIndex]);
             if (amount !== 0) {
-              dataFound = true;
               processedData.push({
                 Date: currentDate,
-                'Product Name': metricName,
+                'Product Name': metricName.trim(),
                 Category: 'Financial Metric',
                 Branch: 'All Outlets',
                 Cashier: cashierNames[colIndex - 1] || `Outlet ${colIndex}`,
@@ -865,7 +751,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
                 'Metric Type': 'Financial Summary',
                 'Percentage': 0,
                 Month: currentDate,
-                'Item Name': metricName,
+                'Item Name': metricName.trim(),
                 'Store Name': 'All Outlets',
                 'Cluster Manager': cashierNames[colIndex - 1] || `Outlet ${colIndex}`,
                 'Sales Type': 'Summary Data',
@@ -882,7 +768,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
 
       // If we still have no data, create at least one dummy record so the upload succeeds
       if (processedData.length === 0) {
-        console.warn('No data extracted, creating sample record');
+        console.warn('[processCashierBasedReport] No data extracted, creating sample record');
         processedData.push({
           Date: currentDate,
           'Product Name': 'Sample Data',
@@ -917,6 +803,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
 
       return processedData;
     } catch (error) {
+      console.error('[processCashierBasedReport] Error:', error);
       throw error;
     }
   };
