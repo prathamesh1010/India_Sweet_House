@@ -106,12 +106,16 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
   }, [onFileUpload]);
 
   const processExcelFile = useCallback(async (file: File) => {
+    console.log('[Excel] ========== STARTING EXCEL FILE PROCESSING ==========');
+    console.log('[Excel] File name:', file.name);
+    console.log('[Excel] File size:', file.size, 'bytes');
+    
     try {
       // Try backend first
       try {
         const backendResult = await processWithBackend(file);
         if (backendResult.success) {
-          console.log('[Excel] Backend processed successfully');
+          console.log('[Excel] ✓ Backend processed successfully');
           setUploadedFiles(prev => [...prev, file.name]);
           onFileUpload(backendResult.data, file.name);
           setIsProcessing(false);
@@ -121,16 +125,24 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         console.log('[Excel] Backend unavailable, using frontend processing');
       }
 
+      console.log('[Excel] Starting frontend fallback processing...');
+      
       // Frontend fallback with complete implementation
       const reader = new FileReader();
       
       reader.onload = async (e) => {
         try {
+          console.log('[Excel] FileReader.onload triggered');
           const data = e.target?.result;
-          if (!data) throw new Error('No data received');
+          if (!data) {
+            console.error('[Excel] No data received from FileReader');
+            throw new Error('No data received');
+          }
           
-          console.log('[Excel] Reading workbook...');
+          console.log('[Excel] Data received, size:', (data as ArrayBuffer).byteLength, 'bytes');
+          console.log('[Excel] Reading workbook with XLSX.read...');
           const workbook = XLSX.read(data, { type: 'array' });
+          console.log('[Excel] ✓ Workbook parsed successfully');
           console.log('[Excel] Sheets found:', workbook.SheetNames.join(', '));
           
           // Check for "Outlet wise" sheet
@@ -157,15 +169,18 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
           const processedData = await processOutletWiseData(rawData, file.name);
           
           if (processedData.length > 0) {
-            console.log('[Excel] Successfully processed', processedData.length, 'records');
+            console.log('[Excel] ✓✓✓ SUCCESS! Processed', processedData.length, 'records');
+            console.log('[Excel] Sample record:', processedData[0]);
             setUploadedFiles(prev => [...prev, file.name]);
             onFileUpload(processedData, file.name);
             setIsProcessing(false);
+            alert(`✓ Successfully processed ${processedData.length} records from ${file.name}`);
           } else {
             const errorMsg = 'Could not extract data from Excel file. Check console (F12) for details. File might not be in the expected "Outlet wise" format with PARTICULARS column and Month-% pairs.';
-            console.error('[Excel] Processing returned no data');
+            console.error('[Excel] ✗✗✗ FAILED: Processing returned no data');
             setError(errorMsg);
             setIsProcessing(false);
+            alert('✗ Failed to process file. Check browser console (F12) for details.');
           }
         } catch (err: any) {
           console.error('[Excel] Processing error:', err);
@@ -431,12 +446,18 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
+    console.log('[FileUpload] ========== FILE DROP EVENT ==========');
     const files = Array.from(e.dataTransfer.files);
+    console.log('[FileUpload] Files dropped:', files.length, 'files');
+    files.forEach((f, i) => console.log(`  [${i}] ${f.name} (${f.size} bytes, ${f.type})`));
     files.forEach(processFile);
   }, [processFile]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('[FileUpload] ========== FILE SELECT EVENT ==========');
     const files = Array.from(e.target.files || []);
+    console.log('[FileUpload] Files selected:', files.length, 'files');
+    files.forEach((f, i) => console.log(`  [${i}] ${f.name} (${f.size} bytes, ${f.type})`));
     files.forEach(processFile);
   }, [processFile]);
 
