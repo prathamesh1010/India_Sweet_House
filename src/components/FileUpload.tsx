@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
-// Database integration removed - using client-side only processing
 
 interface FileUploadProps {
   onFileUpload: (data: any[], filename: string) => void;
@@ -17,19 +16,26 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string>('');
 
-  // Backend API configuration - use environment variable or fallback to localhost
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
-  // Helper to clean number strings (remove currency symbols, commas, etc.)
+  // Helper to normalize strings (remove NBSP, zero-width chars, collapse whitespace)
+  const normStr = (x: any): string => {
+    if (x === null || x === undefined || x === '') return '';
+    let s = String(x);
+    s = s.replace(/\xa0/g, ' ').replace(/\u200b/g, '').replace(/\u200c/g, '').replace(/\u200d/g, '');
+    s = s.replace(/\s+/g, ' ');
+    return s.trim();
+  };
+
+  const normUpper = (x: any): string => normStr(x).toUpperCase();
+
   const cleanNumber = (val: any): number => {
     if (typeof val === 'number') return val;
     if (!val) return 0;
     let str = val.toString().trim();
-    // Handle accounting format (123) -> -123
     if (str.startsWith('(') && str.endsWith(')')) {
       str = '-' + str.slice(1, -1);
     }
-    // Remove all non-numeric characters except dot and minus
     str = str.replace(/[^0-9.-]/g, '');
     const num = parseFloat(str);
     return isNaN(num) ? 0 : num;
@@ -40,9 +46,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       const formData = new FormData();
       formData.append('file', file);
 
-      console.log('[FileUpload] Attempting backend processing at:', BACKEND_URL);
-
-      // Add timeout to backend request (3 seconds) - fail fast on Vercel
+      console.log('[Backend] Attempting to connect to:', BACKEND_URL);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
 
@@ -55,17 +59,17 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error(`Backend API error: ${response.status} ${response.statusText}`);
+        throw new Error(`Backend error: ${response.status}`);
       }
 
       const result = await response.json();
-      console.log('[FileUpload] Backend processing successful');
+      console.log('[Backend] Success, records:', result.data?.length || 0);
       return result;
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        console.warn('[FileUpload] Backend request timeout - using frontend fallback');
+        console.log('[Backend] Timeout - falling back to frontend');
       } else {
-        console.warn('[FileUpload] Backend processing error:', error.message);
+        console.log('[Backend] Error:', error.message, '- using frontend fallback');
       }
       throw error;
     }
@@ -73,8 +77,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
 
   const validateFile = (file: File): boolean => {
     const validTypes = ['text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
-    const isValidType = validTypes.includes(file.type) || file.name.endsWith('.csv');
-    const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB limit
+    const isValidType = validTypes.includes(file.type) || file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    const isValidSize = file.size <= 10 * 1024 * 1024;
     
     if (!isValidType) {
       setError('Please upload a CSV or Excel file');
@@ -88,132 +92,282 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
   };
 
   const processFile = useCallback((file: File) => {
-    console.log('[processFile] START - File:', file.name, 'Type:', file.type, 'Size:', file.size);
+    console.log('[FileUpload] Processing file:', file.name);
+    if (!validateFile(file)) return;
     
-    if (!validateFile(file)) {
-      console.log('[processFile] Validation failed');
-      return;
-    }
-    
-    console.log('[processFile] Validation passed, starting processing...');
     setIsProcessing(true);
     setError('');
 
-    // Check if it's an Excel file and handle it differently
     if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-      console.log('[processFile] Detected Excel file, calling processExcelFile');
       processExcelFile(file);
     } else {
-      console.log('[processFile] Detected CSV file, calling processCsvFile');
       processCsvFile(file);
     }
   }, [onFileUpload]);
 
   const processExcelFile = useCallback(async (file: File) => {
     try {
-      // Try backend processing first for Excel files
+      // Try backend first
       try {
         const backendResult = await processWithBackend(file);
         if (backendResult.success) {
-          console.log('[FileUpload] Backend returned', backendResult.data?.length || 0, 'records');
+          console.log('[Excel] Backend processed successfully');
           setUploadedFiles(prev => [...prev, file.name]);
           onFileUpload(backendResult.data, file.name);
           setIsProcessing(false);
-          
-          // Show special message for multi-worksheet files
-          if (backendResult.message && backendResult.message.includes('Outlet wise')) {
-            console.log('Multi-worksheet file processed successfully:', backendResult.message);
-          }
           return;
-        } else {
-          console.warn('[FileUpload] Backend processing failed, falling back to frontend:', backendResult.error);
         }
       } catch (backendError) {
-        console.warn('[FileUpload] Backend not available, using frontend processing');
+        console.log('[Excel] Backend unavailable, using frontend processing');
       }
 
-      console.log('[FileUpload] Starting frontend fallback processing');
-      
-      // Frontend fallback processing
+      // Frontend fallback with complete implementation
       const reader = new FileReader();
       
       reader.onload = async (e) => {
         try {
-          console.log('[FileUpload] ========== READER ONLOAD TRIGGERED ==========');
           const data = e.target?.result;
-          if (!data) {
-            throw new Error('No data received from file');
-          }
+          if (!data) throw new Error('No data received');
           
-          console.log('[FileUpload] Reading Excel workbook... Data size:', (data as ArrayBuffer).byteLength, 'bytes');
+          console.log('[Excel] Reading workbook...');
           const workbook = XLSX.read(data, { type: 'array' });
-          console.log('[FileUpload] Workbook loaded successfully');
-          console.log('[FileUpload] Found sheets:', workbook.SheetNames);
-          console.log('[FileUpload] Sheet details:', workbook.SheetNames.map(name => `"${name}"`).join(', '));
+          console.log('[Excel] Sheets found:', workbook.SheetNames.join(', '));
           
-          // Check if there's an "Outlet wise" worksheet
-          const outletWiseSheet = workbook.SheetNames.find(name => 
-            name.toLowerCase().includes('outlet') && name.toLowerCase().includes('wise')
+          // Check for "Outlet wise" sheet
+          let sheetName = workbook.SheetNames.find(name => 
+            normUpper(name).includes('OUTLET') && normUpper(name).includes('WISE')
           );
           
-          let rawData: any[][];
-          let sheetUsed: string;
-          
-          if (outletWiseSheet) {
-            console.log(`[FileUpload] Processing multi-worksheet file, using sheet: ${outletWiseSheet}`);
-            const worksheet = workbook.Sheets[outletWiseSheet];
-            rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null, raw: false });
-            sheetUsed = outletWiseSheet;
+          if (!sheetName) {
+            sheetName = workbook.SheetNames[0];
+            console.log('[Excel] Using first sheet:', sheetName);
           } else {
-            // Use first sheet
-            sheetUsed = workbook.SheetNames[0];
-            console.log(`[FileUpload] Using first sheet: ${sheetUsed}`);
-            const worksheet = workbook.Sheets[sheetUsed];
-            rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null, raw: false });
+            console.log('[Excel] Found "Outlet wise" sheet:', sheetName);
           }
           
-          console.log(`[FileUpload] Extracted ${rawData.length} rows from Excel`);
-          if (rawData.length > 0) {
-            console.log('[FileUpload] First row:', rawData[0]);
-            console.log('[FileUpload] Second row:', rawData[1]);
-            console.log('[FileUpload] Third row:', rawData[2]);
-          }
+          const worksheet = workbook.Sheets[sheetName];
+          const rawData: any[][] = XLSX.utils.sheet_to_json(worksheet, { 
+            header: 1, 
+            defval: null,
+            raw: false
+          });
           
-          const processedData = await processFinancialReport(rawData, file.name);
+          console.log('[Excel] Extracted', rawData.length, 'rows');
           
-          console.log(`[FileUpload] Processed ${processedData.length} records`);
+          const processedData = await processOutletWiseData(rawData, file.name);
           
           if (processedData.length > 0) {
-            console.log('[FileUpload] Sample processed record:', processedData[0]);
+            console.log('[Excel] Successfully processed', processedData.length, 'records');
             setUploadedFiles(prev => [...prev, file.name]);
             onFileUpload(processedData, file.name);
             setIsProcessing(false);
           } else {
-            const errorMsg = 'Could not extract meaningful data from the financial report. Please check the file format.';
-            console.error('[FileUpload]', errorMsg);
-            setError(errorMsg);
+            setError('Could not extract data. Please check file format.');
             setIsProcessing(false);
           }
         } catch (err: any) {
-          const errorMsg = `Error processing financial report: ${err.message}`;
-          console.error('[FileUpload]', errorMsg, err);
-          setError(errorMsg);
+          console.error('[Excel] Processing error:', err);
+          setError(`Error processing Excel: ${err.message}`);
           setIsProcessing(false);
         }
       };
       
       reader.onerror = () => {
-        console.error('[FileUpload] Error reading Excel file');
-        setError('Error reading Excel file.');
+        setError('Error reading Excel file');
         setIsProcessing(false);
       };
       
       reader.readAsArrayBuffer(file);
     } catch (err: any) {
-      setError(`Error processing Excel file: ${err.message}`);
+      setError(`Error: ${err.message}`);
       setIsProcessing(false);
     }
   }, [onFileUpload]);
+
+  // Complete frontend implementation matching Python backend
+  const processOutletWiseData = async (rawData: any[][], filename: string): Promise<any[]> => {
+    console.log('[Process] Starting outlet-wise processing');
+    
+    // Step 1: Detect header row (where "PARTICULARS" is located)
+    const { hdrRow, partCol } = detectHeader(rawData);
+    console.log(`[Process] Header at row=${hdrRow}, particulars_col=${partCol}`);
+    
+    if (hdrRow === -1) {
+      console.error('[Process] Could not detect header row');
+      return [];
+    }
+    
+    const outletRow = Math.max(hdrRow - 1, 0);
+    const managerRow = Math.max(hdrRow - 3, 0);
+    
+    // Step 2: Build column-indexed data starting from header row
+    const headerRowData = rawData[hdrRow] || [];
+    const dataRows = rawData.slice(hdrRow + 1);
+    
+    // Required metrics to extract
+    const requiredMetrics = [
+      "Direct Income", "TOTAL REVENUE", "COGS", "Outlet Expenses",
+      "EBIDTA", "Finance Cost", "PBT", "WASTAGE",
+      "01-Bank Charges", "02-Interest on Borrowings", 
+      "03-Interest on Vehicle Loan", "04-MG"
+    ];
+    
+    // Step 3: Filter rows to only required metrics
+    const metricsData: Array<{particular: string, values: any[]}> = [];
+    for (const row of dataRows) {
+      const particular = normStr(row[partCol]);
+      if (requiredMetrics.some(m => normUpper(particular).includes(normUpper(m)) || normUpper(m).includes(normUpper(particular)))) {
+        metricsData.push({ particular, values: row });
+      }
+    }
+    
+    if (metricsData.length === 0) {
+      console.log('[Process] No required metrics found in data');
+      console.log('[Process] Available particulars:', dataRows.slice(0, 20).map(r => normStr(r[partCol])));
+      return [];
+    }
+    
+    console.log('[Process] Found', metricsData.length, 'metric rows');
+    
+    // Step 4: Detect Month-% column pairs
+    const monthPattern = /^[A-Za-z]+-\d{2}(?:\.\d+)?$/;
+    const pctPattern = /^%(?:\.\d+)?$/;
+    const outletBlocks: Array<{valIdx: number, monthCol: string, pctCol: string}> = [];
+    
+    for (let i = partCol + 1; i < headerRowData.length - 1; i++) {
+      const colName = normStr(headerRowData[i]);
+      const nextName = normStr(headerRowData[i + 1]);
+      
+      if (monthPattern.test(colName) && (nextName === '%' || pctPattern.test(nextName))) {
+        outletBlocks.push({
+          valIdx: i,
+          monthCol: colName,
+          pctCol: nextName
+        });
+      }
+    }
+    
+    if (outletBlocks.length === 0) {
+      console.log('[Process] No Month-% pairs detected');
+      console.log('[Process] Header columns:', headerRowData.slice(partCol, partCol + 20));
+      return [];
+    }
+    
+    console.log('[Process] Detected', outletBlocks.length, 'outlet blocks');
+    
+    // Step 5: Extract outlet/manager names and build final data
+    const finalRows: any[] = [];
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    for (const block of outletBlocks) {
+      const outletName = getName(rawData, outletRow, block.valIdx);
+      const managerName = getName(rawData, managerRow, block.valIdx);
+      
+      // Skip consolidated summary columns
+      if (normUpper(outletName).includes('CONSOLIDATED') || normUpper(outletName).includes('SUMMARY')) {
+        continue;
+      }
+      
+      const monthLabel = block.monthCol;
+      const month = monthLabel.includes('-') ? monthLabel.split('-')[0] : monthLabel;
+      
+      const row: any = {
+        'Outlet': outletName || `Outlet ${block.valIdx}`,
+        'Outlet Manager': managerName || `Manager ${block.valIdx}`,
+        'Month': month,
+        'Date': currentDate,
+        'Upload Filename': filename
+      };
+      
+      // Extract all metric values
+      for (const metric of metricsData) {
+        const value = metric.values[block.valIdx];
+        row[metric.particular] = cleanNumber(value);
+      }
+      
+      // Add standard fields for compatibility
+      row['Product Name'] = `Financial Data - ${month}`;
+      row['Category'] = 'Financial Report';
+      row['Branch'] = row['Outlet'];
+      row['Cashier'] = row['Outlet Manager'];
+      row['Total Amount (₹)'] = row['TOTAL REVENUE'] || 0;
+      row['Quantity'] = 1;
+      
+      finalRows.push(row);
+    }
+    
+    console.log('[Process] Final output:', finalRows.length, 'records');
+    return finalRows;
+  };
+
+  const detectHeader = (rawData: any[][]): {hdrRow: number, partCol: number} => {
+    // A) Look for exact "PARTICULARS"
+    for (let i = 0; i < Math.min(50, rawData.length); i++) {
+      const row = rawData[i] || [];
+      for (let j = 0; j < Math.min(20, row.length); j++) {
+        if (normUpper(row[j]) === 'PARTICULARS') {
+          return { hdrRow: i, partCol: j };
+        }
+      }
+    }
+    
+    // B) Look for substring "PARTICULARS"
+    for (let i = 0; i < Math.min(50, rawData.length); i++) {
+      const row = rawData[i] || [];
+      for (let j = 0; j < Math.min(20, row.length); j++) {
+        const val = normUpper(row[j]);
+        if (val.includes('PARTICULAR')) {
+          return { hdrRow: i, partCol: j };
+        }
+      }
+    }
+    
+    // C) Fallback: row with most Month-YY tokens
+    const monthPattern = /^[A-Z]+-\d{2}(?:\.\d+)?$/;
+    let maxCount = 0;
+    let bestRow = 0;
+    
+    for (let i = 0; i < Math.min(50, rawData.length); i++) {
+      const row = rawData[i] || [];
+      const count = row.filter(cell => monthPattern.test(normUpper(cell))).length;
+      if (count > maxCount) {
+        maxCount = count;
+        bestRow = i;
+      }
+    }
+    
+    if (maxCount > 0) {
+      const row = rawData[bestRow] || [];
+      let partCol = 0;
+      for (let j = 0; j < row.length; j++) {
+        if (normStr(row[j])) {
+          partCol = j;
+          break;
+        }
+      }
+      return { hdrRow: bestRow, partCol };
+    }
+    
+    return { hdrRow: -1, partCol: 0 };
+  };
+
+  const getName = (rawData: any[][], baseRow: number, baseCol: number, maxUp: number = 8, maxDx: number = 2): string => {
+    // Scan up to maxUp rows upward and +/- maxDx columns laterally
+    for (let up = 0; up <= maxUp; up++) {
+      const r = baseRow - up;
+      if (r < 0) break;
+      
+      const offsets = [0, -1, 1, -2, 2];
+      for (const dx of offsets) {
+        const c = baseCol + dx;
+        if (c >= 0 && c < (rawData[r] || []).length) {
+          const val = normStr(rawData[r][c]);
+          if (val) return val;
+        }
+      }
+    }
+    return '';
+  };
 
   const processCsvFile = useCallback((file: File) => {
     Papa.parse(file, {
@@ -224,10 +378,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       complete: async (results) => {
         try {
           if (results.errors.length > 0) {
-            console.warn('CSV parsing warnings:', results.errors);
+            console.warn('[CSV] Parsing warnings:', results.errors);
           }
           
-          // Validate required columns - check for both old and new formats
           const headers = Object.keys(results.data[0] || {});
           const requiredFields = [
             { name: 'Date/Month', options: ['Date', 'Month'] },
@@ -242,599 +395,35 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
           );
           
           if (missingFields.length > 0) {
-            setError(`Missing required columns: ${missingFields.map(f => f.name).join(', ')}`);
+            setError(`Missing columns: ${missingFields.map(f => f.name).join(', ')}`);
             setIsProcessing(false);
             return;
           }
 
-          // Data processed locally - no database operations
-
           setUploadedFiles(prev => [...prev, file.name]);
           onFileUpload(results.data, file.name);
           setIsProcessing(false);
-        } catch (err) {
-          setError('Error processing file. Please check the format.');
+        } catch (err: any) {
+          setError('Error processing CSV file');
           setIsProcessing(false);
         }
       },
       error: (error) => {
-        setError(`Error parsing file: ${error.message}`);
+        setError(`CSV parse error: ${error.message}`);
         setIsProcessing(false);
       }
     });
   }, [onFileUpload]);
 
-  const processFinancialReport = async (rawData: any[][], filename: string) => {
-    try {
-      console.log('[processFinancialReport] Starting with', rawData.length, 'rows');
-      
-      // First check if this looks like an "Outlet wise" worksheet (metrics in rows, outlets in columns)
-      const isOutletWiseFormat = detectOutletWiseFormat(rawData);
-      
-      if (isOutletWiseFormat) {
-        console.log('[processFinancialReport] Detected Outlet wise format (transposed data)');
-        const result = await processOutletWiseWorksheet(rawData, filename);
-        if (result && result.length > 0) {
-          return result;
-        }
-        console.log('[processFinancialReport] Outlet wise processing returned no data, trying other formats...');
-      }
-      
-      // Check if this is an outlet-based financial report (outlets in rows)
-      for (let i = 0; i < Math.min(5, rawData.length); i++) {
-        const row = rawData[i];
-        if (!row || row.length < 5) continue;
-        
-        const rowStr = row.slice(0, 5).map(c => c?.toString().toLowerCase() || '').join(' ');
-        const hasOutletColumn = rowStr.includes('outlet') && !rowStr.includes('expenses');
-        const hasManager = rowStr.includes('manager');
-        const hasFinancialMetrics = row.some(cell => 
-          cell?.toString().toLowerCase().includes('direct income') ||
-          cell?.toString().toLowerCase().includes('total revenue') ||
-          cell?.toString().toLowerCase().includes('cogs') ||
-          cell?.toString().toLowerCase().includes('ebitda') ||
-          cell?.toString().toLowerCase().includes('pbt')
-        );
-
-        if (hasOutletColumn && hasManager && hasFinancialMetrics) {
-          console.log('[processFinancialReport] Using outlet-based report processing');
-          return processOutletBasedReport(rawData, filename);
-        }
-      }
-
-      // Fallback to original cashier-based processing
-      console.log('[processFinancialReport] Using cashier-based report processing');
-      return processCashierBasedReport(rawData, filename);
-    } catch (error) {
-      console.error('Error in processFinancialReport:', error);
-      throw error;
-    }
-  };
-
-  const detectOutletWiseFormat = (rawData: any[][]): boolean => {
-    if (!rawData || rawData.length < 5) return false;
-    
-    const requiredMetrics = [
-      'direct income', 'total revenue', 'cogs', 'outlet expenses', 
-      'ebidta', 'ebitda', 'finance cost', 'pbt', 'wastage'
-    ];
-    
-    let hasParticulars = false;
-    let hasMetrics = 0;
-    
-    // Scan first 30 rows and first 10 columns
-    for (let i = 0; i < Math.min(30, rawData.length); i++) {
-      const row = rawData[i];
-      if (!row) continue;
-      
-      for (let j = 0; j < Math.min(10, row.length); j++) {
-        const cell = row[j]?.toString().toLowerCase() || '';
-        if (cell.includes('particular')) {
-          hasParticulars = true;
-        }
-        for (const metric of requiredMetrics) {
-          if (cell.includes(metric)) {
-            hasMetrics++;
-          }
-        }
-      }
-    }
-    
-    console.log(`[detectOutletWiseFormat] hasParticulars: ${hasParticulars}, hasMetrics: ${hasMetrics}`);
-    return hasParticulars || hasMetrics >= 3;
-  };
-
-  const processOutletWiseWorksheet = async (rawData: any[][], filename: string) => {
-    try {
-      console.log('[processOutletWiseWorksheet] Starting processing');
-      const processedData: any[] = [];
-      const currentDate = new Date().toISOString().split('T')[0];
-      
-      // Find header row (contains "Particulars" or month patterns)
-      let headerRowIndex = -1;
-      let particularsColIndex = 0;
-      const monthPattern = /^[A-Za-z]+-\d{2}$/;
-      
-      // Scan first 30 rows and first 10 columns for "Particulars"
-      for (let i = 0; i < Math.min(30, rawData.length); i++) {
-        const row = rawData[i];
-        if (!row) continue;
-        
-        for (let j = 0; j < Math.min(10, row.length); j++) {
-          const cell = row[j]?.toString().toLowerCase() || '';
-          if (cell.includes('particular')) {
-            headerRowIndex = i;
-            particularsColIndex = j;
-            console.log(`[processOutletWiseWorksheet] Found 'Particulars' at row ${i}, col ${j}`);
-            break;
-          }
-        }
-        if (headerRowIndex !== -1) break;
-      }
-      
-      // Fallback: look for month patterns if "Particulars" not found
-      if (headerRowIndex === -1) {
-        for (let i = 0; i < Math.min(30, rawData.length); i++) {
-          const row = rawData[i];
-          if (!row) continue;
-          
-          const hasMonthPattern = row.some(cell => 
-            cell && monthPattern.test(cell.toString().trim())
-          );
-          if (hasMonthPattern) {
-            headerRowIndex = i;
-            console.log(`[processOutletWiseWorksheet] Found month pattern at row ${i}`);
-            break;
-          }
-        }
-      }
-      
-      if (headerRowIndex === -1) {
-        console.log('[processOutletWiseWorksheet] No header found, using row 0');
-        headerRowIndex = 0;
-      }
-      
-      // Extract outlet names from rows above header
-      const outletRow = headerRowIndex > 0 ? rawData[headerRowIndex - 1] : [];
-      const managerRow = headerRowIndex > 2 ? rawData[headerRowIndex - 3] : [];
-      
-      // Required metrics to extract
-      const requiredMetrics = [
-        'Direct Income', 'TOTAL REVENUE', 'COGS', 'Outlet Expenses',
-        'EBIDTA', 'Finance Cost', 'PBT', 'WASTAGE',
-        '01-Bank Charges', '02-Interest on Borrowings', 
-        '03-Interest on Vehicle Loan', '04-MG'
-      ];
-      
-      // Build outlet data from columns
-      const headerRow = rawData[headerRowIndex];
-      const outlets: Array<{index: number, name: string, manager: string, month: string}> = [];
-      
-      // Find Month-% column pairs
-      if (headerRow) {
-        for (let colIdx = particularsColIndex + 1; colIdx < headerRow.length; colIdx++) {
-          const cellValue = headerRow[colIdx]?.toString().trim() || '';
-          const nextCellValue = headerRow[colIdx + 1]?.toString().trim() || '';
-          
-          const isMonthPair = (monthPattern.test(cellValue) || cellValue.includes('-2')) && 
-                             (nextCellValue === '%' || nextCellValue.includes('%'));
-                             
-          if (isMonthPair) {
-            let outletName = `Outlet ${outlets.length + 1}`;
-            if (outletRow && outletRow[colIdx]) outletName = outletRow[colIdx].toString().trim();
-            else if (headerRowIndex > 1 && rawData[headerRowIndex-2] && rawData[headerRowIndex-2][colIdx]) {
-               outletName = rawData[headerRowIndex-2][colIdx].toString().trim();
-            }
-
-            let managerName = 'Manager';
-            if (managerRow && managerRow[colIdx]) managerName = managerRow[colIdx].toString().trim();
-
-            outlets.push({
-              index: colIdx,
-              name: outletName,
-              manager: managerName,
-              month: cellValue
-            });
-            
-            colIdx++; // Skip % column
-          }
-        }
-      }
-      
-      // Fallback: find columns with numeric data in "TOTAL REVENUE" row
-      if (outlets.length === 0) {
-        console.log('[processOutletWiseWorksheet] Strict pattern failed, trying loose column detection');
-        
-        const revenueRow = rawData.find(row => 
-          row && row[particularsColIndex] && row[particularsColIndex].toString().toLowerCase().includes('total revenue')
-        );
-        
-        if (revenueRow) {
-          for (let colIdx = particularsColIndex + 1; colIdx < revenueRow.length; colIdx++) {
-            const val = cleanNumber(revenueRow[colIdx]);
-            if (val !== 0) {
-               let outletName = `Outlet ${outlets.length + 1}`;
-               if (outletRow && outletRow[colIdx]) outletName = outletRow[colIdx].toString().trim();
-               
-               if (outletName.toLowerCase().includes('total') || outletName.toLowerCase().includes('consolidated')) continue;
-
-               outlets.push({
-                index: colIdx,
-                name: outletName,
-                manager: (managerRow && managerRow[colIdx]) ? managerRow[colIdx].toString().trim() : 'Manager',
-                month: currentDate
-              });
-            }
-          }
-        }
-      }
-      
-      console.log(`[processOutletWiseWorksheet] Found ${outlets.length} outlets`);
-      
-      if (outlets.length === 0) {
-        console.warn('[processOutletWiseWorksheet] No outlets found');
-        return [];
-      }
-      
-      // Extract data for each outlet
-      for (const outlet of outlets) {
-        const outletData: any = {
-          'Outlet': outlet.name,
-          'Outlet Name': outlet.name,
-          'Outlet Manager': outlet.manager,
-          'Month': outlet.month || currentDate,
-          Date: currentDate,
-          'Product Name': 'Outlet Summary',
-          Category: 'Financial Summary',
-          Branch: outlet.name,
-          Cashier: outlet.manager,
-          'Customer Type': 'Summary Data',
-          'Payment Mode': 'N/A',
-          'Upload Filename': filename,
-          'Metric Type': 'Outlet Summary',
-          'Store Name': outlet.name,
-          'Cluster Manager': outlet.manager,
-          'Sales Type': 'Summary Data',
-          'Payment Type': 'N/A',
-          Quantity: 1,
-          Qty: 1,
-          'Discount (%)': 0,
-          'GST (%)': 0,
-          'Percentage': 0
-        };
-        
-        // Extract metrics for this outlet
-        for (let rowIdx = headerRowIndex + 1; rowIdx < rawData.length; rowIdx++) {
-          const row = rawData[rowIdx];
-          if (!row) continue;
-          
-          const metricName = row[particularsColIndex]?.toString().trim() || '';
-          if (!metricName) continue;
-          
-          const matchedMetric = requiredMetrics.find(m => 
-            metricName.toUpperCase().includes(m.toUpperCase()) ||
-            m.toUpperCase().includes(metricName.toUpperCase())
-          );
-          
-          if (matchedMetric) {
-            const value = cleanNumber(row[outlet.index]);
-            outletData[matchedMetric] = value;
-            
-            if (matchedMetric === 'EBIDTA') outletData['EBITDA'] = value;
-            if (matchedMetric === 'TOTAL REVENUE') {
-              outletData['Total Amount (₹)'] = value;
-              outletData['Total Sales'] = value;
-              outletData['Unit Price (₹)'] = value;
-              outletData['Gross Amount'] = value;
-            }
-          }
-        }
-        
-        if (!outletData['Finance Cost']) {
-          outletData['Finance Cost'] = 
-            (outletData['01-Bank Charges'] || 0) +
-            (outletData['02-Interest on Borrowings'] || 0) +
-            (outletData['03-Interest on Vehicle Loan'] || 0) +
-            (outletData['04-MG'] || 0);
-        }
-        
-        processedData.push(outletData);
-      }
-      
-      console.log(`[processOutletWiseWorksheet] Processed ${processedData.length} outlet records`);
-      if (processedData.length > 0) {
-        console.log('[processOutletWiseWorksheet] Sample record:', processedData[0]);
-      }
-      
-      return processedData;
-    } catch (error) {
-      console.error('Error in processOutletWiseWorksheet:', error);
-      throw error;
-    }
-  };
-
-  const processOutletBasedReport = async (rawData: any[][], filename: string) => {
-    try {
-      const processedData: any[] = [];
-      const currentDate = new Date().toISOString().split('T')[0];
-      
-      // Skip header row and process data rows
-      for (let i = 1; i < rawData.length; i++) {
-        const row = rawData[i];
-        if (!row || row.length < 5) continue;
-        
-        const outletName = row[0]?.toString().trim();
-        const outletManager = row[1]?.toString().trim();
-        const month = row[2]?.toString().trim();
-        
-        // Skip empty rows or headers
-        if (!outletName || outletName === '' || outletName === 'NaN' || 
-            outletName.toLowerCase().includes('outlet') ||
-            outletName.toLowerCase().includes('consolidated')) continue;
-        
-        // Create a single record per outlet with all financial metrics as columns
-        const totalRevenue = cleanNumber(row[4]);
-        const ebitda = cleanNumber(row[7]);
-        const pbt = cleanNumber(row[9]);
-        
-        const outletRecord = {
-          // Core outlet information
-          'Outlet': outletName,
-          'Outlet Manager': outletManager,
-          'Outlet Name': outletName,
-          'Month': month || currentDate,
-          
-          // Financial metrics as separate columns
-          'Direct Income': cleanNumber(row[3]),
-          'TOTAL REVENUE': totalRevenue,
-          'COGS': cleanNumber(row[5]),
-          'Outlet Expenses': cleanNumber(row[6]),
-          'EBIDTA': ebitda,
-          'EBITDA': ebitda,
-          'Finance Cost': cleanNumber(row[8]),
-          'PBT': pbt,
-          'WASTAGE': cleanNumber(row[10]),
-          
-          // Additional fields for compatibility with existing analytics
-          Date: currentDate,
-          'Product Name': 'Outlet Summary',
-          Category: 'Financial Summary',
-          Branch: outletName,
-          Cashier: outletManager,
-          'Customer Type': 'Summary Data',
-          'Payment Mode': 'N/A',
-          'Total Amount (₹)': totalRevenue,
-          Quantity: 1,
-          'Unit Price (₹)': totalRevenue,
-          'Discount (%)': 0,
-          'GST (%)': 0,
-          'Gross Amount': totalRevenue,
-          'Upload Filename': filename,
-          'Metric Type': 'Outlet Summary',
-          'Percentage': 0,
-          'Item Name': 'Outlet Summary',
-          'Store Name': outletName,
-          'Cluster Manager': outletManager,
-          'Sales Type': 'Summary Data',
-          'Payment Type': 'N/A',
-          'Total Sales': totalRevenue,
-          Qty: 1
-        };
-        
-        processedData.push(outletRecord);
-      }
-
-      return processedData;
-    } catch (error) {
-      console.error('Error in processOutletBasedReport:', error);
-      throw error;
-    }
-  };
-
-  const processCashierBasedReport = async (rawData: any[][], filename: string) => {
-    try {
-      // Find the header row (contains cashier names or outlet names)
-      let headerRowIndex = -1;
-      let cashierNames: string[] = [];
-      
-      // Look for the row with cashier/outlet names (usually row 0 or 1)
-      for (let i = 0; i < Math.min(5, rawData.length); i++) {
-        const row = rawData[i];
-        if (row && row.length > 3) {
-          // Look for potential names in the row (more lenient filtering)
-          const potentialNames = row
-            .map((cell, index) => ({ cell, index }))
-            .filter(({ cell, index }) => 
-              index > 0 && // Skip first column
-              cell && 
-              (typeof cell === 'string' || typeof cell === 'number') && 
-              cell.toString().trim() !== '' && 
-              !cell.toString().includes('Unnamed') &&
-              !cell.toString().toLowerCase().includes('consolidated') &&
-              !cell.toString().toLowerCase().includes('rs.') &&
-              cell.toString().trim().length > 1
-            )
-            .map(({ cell }) => cell.toString().trim());
-          
-          if (potentialNames.length >= 1) { // At least 1 name found
-            headerRowIndex = i;
-            cashierNames = potentialNames;
-            break;
-          }
-        }
-      }
-
-      // Ultimate fallback: create generic outlet names if still nothing found
-      if (cashierNames.length === 0) {
-        console.warn('[processCashierBasedReport] No cashier names found, using generic processing');
-        const maxColumns = Math.max(...rawData.map(row => row ? row.length : 0));
-        for (let i = 1; i < Math.min(maxColumns, 10); i++) {
-          cashierNames.push(`Outlet ${i}`);
-        }
-        headerRowIndex = 0;
-      }
-
-      // Find the data rows (financial metrics)
-      const processedData: any[] = [];
-      const currentDate = new Date().toISOString().split('T')[0];
-      
-      // Start from row after header
-      const startRow = Math.max(1, headerRowIndex + 1);
-      
-      for (let i = startRow; i < rawData.length; i++) {
-        const row = rawData[i];
-        if (!row || row.length < 2) continue;
-        
-        const metricName = row[0];
-        if (!metricName || metricName.toString().trim() === '') continue;
-        
-        const metricStr = metricName.toString().trim();
-        // Skip empty rows and section headers
-        if (metricStr.toLowerCase().includes('nan') || metricStr === '') continue;
-        
-        // Process each cashier's data
-        // Try different column patterns: every 3 columns (amount, %, blank) or single columns
-        let dataFound = false;
-        
-        // Pattern 1: Every 3rd column (amount, percentage, blank)
-        let cashierIndex = 0;
-        for (let colIndex = 1; colIndex < row.length && cashierIndex < cashierNames.length; colIndex += 3) {
-          const cashierName = cashierNames[cashierIndex];
-          const amount = cleanNumber(row[colIndex]);
-          const percentage = cleanNumber(row[colIndex + 1]);
-          
-          if (amount !== 0 || percentage !== 0) {
-            dataFound = true;
-            processedData.push({
-              Date: currentDate,
-              'Product Name': metricStr,
-              Category: 'Financial Metric',
-              Branch: 'All Outlets',
-              Cashier: cashierName,
-              'Customer Type': 'Summary Data',
-              'Payment Mode': 'N/A',
-              'Total Amount (₹)': amount,
-              Quantity: 1,
-              'Unit Price (₹)': amount,
-              'Discount (%)': 0,
-              'GST (%)': 0,
-              'Gross Amount': amount,
-              PBT: amount * 0.1,
-              EBITDA: amount * 0.15,
-              'Upload Filename': filename,
-              'Metric Type': 'Financial Summary',
-              'Percentage': percentage,
-              Month: currentDate,
-              'Item Name': metricStr,
-              'Store Name': 'All Outlets',
-              'Cluster Manager': cashierName,
-              'Sales Type': 'Summary Data',
-              'Payment Type': 'N/A',
-              'Total Sales': amount,
-              Qty: 1,
-              'Outlet': cashierName,
-              'Outlet Manager': cashierName
-            });
-          }
-          cashierIndex++;
-        }
-        
-        // Pattern 2: If pattern 1 didn't work, try sequential columns
-        if (!dataFound && row.length > 2) {
-          for (let colIndex = 1; colIndex < Math.min(row.length, cashierNames.length + 1); colIndex++) {
-            const amount = cleanNumber(row[colIndex]);
-            if (amount !== 0) {
-              processedData.push({
-                Date: currentDate,
-                'Product Name': metricStr,
-                Category: 'Financial Metric',
-                Branch: 'All Outlets',
-                Cashier: cashierNames[colIndex - 1] || `Outlet ${colIndex}`,
-                'Customer Type': 'Summary Data',
-                'Payment Mode': 'N/A',
-                'Total Amount (₹)': amount,
-                Quantity: 1,
-                'Unit Price (₹)': amount,
-                'Discount (%)': 0,
-                'GST (%)': 0,
-                'Gross Amount': amount,
-                PBT: amount * 0.1,
-                EBITDA: amount * 0.15,
-                'Upload Filename': filename,
-                'Metric Type': 'Financial Summary',
-                'Percentage': 0,
-                Month: currentDate,
-                'Item Name': metricStr,
-                'Store Name': 'All Outlets',
-                'Cluster Manager': cashierNames[colIndex - 1] || `Outlet ${colIndex}`,
-                'Sales Type': 'Summary Data',
-                'Payment Type': 'N/A',
-                'Total Sales': amount,
-                Qty: 1,
-                'Outlet': cashierNames[colIndex - 1] || `Outlet ${colIndex}`,
-                'Outlet Manager': cashierNames[colIndex - 1] || `Manager ${colIndex}`
-              });
-            }
-          }
-        }
-      }
-
-      // If we still have no data, create at least one dummy record so the upload succeeds
-      if (processedData.length === 0) {
-        console.warn('[processCashierBasedReport] No data extracted, creating sample record');
-        processedData.push({
-          Date: currentDate,
-          'Product Name': 'Sample Data',
-          Category: 'Sample',
-          Branch: 'Sample Outlet',
-          Cashier: 'Sample Manager',
-          'Customer Type': 'Sample',
-          'Payment Mode': 'Cash',
-          'Total Amount (₹)': 0,
-          Quantity: 0,
-          'Unit Price (₹)': 0,
-          'Discount (%)': 0,
-          'GST (%)': 0,
-          'Gross Amount': 0,
-          PBT: 0,
-          EBITDA: 0,
-          'Upload Filename': filename,
-          'Metric Type': 'Sample',
-          'Percentage': 0,
-          Month: currentDate,
-          'Item Name': 'Sample Data',
-          'Store Name': 'Sample Outlet',
-          'Cluster Manager': 'Sample Manager',
-          'Sales Type': 'Sample',
-          'Payment Type': 'Cash',
-          'Total Sales': 0,
-          Qty: 0,
-          'Outlet': 'Sample Outlet',
-          'Outlet Manager': 'Sample Manager'
-        });
-      }
-
-      return processedData;
-    } catch (error) {
-      console.error('[processCashierBasedReport] Error:', error);
-      throw error;
-    }
-  };
-
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    
-    console.log('[handleDrop] DROP EVENT - Files dropped:', e.dataTransfer.files.length);
     const files = Array.from(e.dataTransfer.files);
-    console.log('[handleDrop] Processing files:', files.map(f => f.name).join(', '));
     files.forEach(processFile);
   }, [processFile]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('[handleFileSelect] SELECT EVENT - Files selected:', e.target.files?.length || 0);
     const files = Array.from(e.target.files || []);
-    console.log('[handleFileSelect] Processing files:', files.map(f => f.name).join(', '));
     files.forEach(processFile);
   }, [processFile]);
 
@@ -851,9 +440,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
           </div>
           <div>
             <h3 className="text-base font-semibold text-foreground font-display">Upload Data</h3>
-            <p className="text-xs text-muted-foreground">
-              CSV or Excel files
-            </p>
+            <p className="text-xs text-muted-foreground">CSV or Excel files</p>
           </div>
         </div>
 
@@ -935,29 +522,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
                 </Button>
               </div>
             ))}
-            {uploadedFiles.length >= 2 && (
-              <div className="mt-3 p-3 bg-primary/5 border border-primary/20 rounded-lg">
-                <div className="flex items-center gap-2 text-sm text-primary">
-                  <CheckCircle className="h-4 w-4" />
-                  <span className="font-medium">Multiple files uploaded!</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Use the analytics tabs to analyze your uploaded data
-                </p>
-              </div>
-            )}
-            
-            {uploadedFiles.some(filename => filename.includes('Outlet PL')) && (
-              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center gap-2 text-sm text-green-700">
-                  <CheckCircle className="h-4 w-4" />
-                  <span className="font-medium">Multi-worksheet file processed!</span>
-                </div>
-                <p className="text-xs text-green-600 mt-1">
-                  Successfully processed "Outlet wise" worksheet with outlet data
-                </p>
-              </div>
-            )}
           </div>
         )}
       </div>
