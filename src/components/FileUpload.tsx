@@ -162,7 +162,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
             onFileUpload(processedData, file.name);
             setIsProcessing(false);
           } else {
-            setError('Could not extract data. Please check file format.');
+            const errorMsg = 'Could not extract data from Excel file. Check console (F12) for details. File might not be in the expected "Outlet wise" format with PARTICULARS column and Month-% pairs.';
+            console.error('[Excel] Processing returned no data');
+            setError(errorMsg);
             setIsProcessing(false);
           }
         } catch (err: any) {
@@ -187,6 +189,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
   // Complete frontend implementation matching Python backend
   const processOutletWiseData = async (rawData: any[][], filename: string): Promise<any[]> => {
     console.log('[Process] Starting outlet-wise processing');
+    console.log('[Process] Raw data rows:', rawData.length);
+    console.log('[Process] First 3 rows:', rawData.slice(0, 3));
     
     // Step 1: Detect header row (where "PARTICULARS" is located)
     const { hdrRow, partCol } = detectHeader(rawData);
@@ -194,6 +198,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
     
     if (hdrRow === -1) {
       console.error('[Process] Could not detect header row');
+      console.error('[Process] Dumping first 10 rows for debugging:');
+      rawData.slice(0, 10).forEach((row, i) => {
+        console.log(`Row ${i}:`, row?.slice(0, 10));
+      });
       return [];
     }
     
@@ -222,8 +230,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
     }
     
     if (metricsData.length === 0) {
-      console.log('[Process] No required metrics found in data');
-      console.log('[Process] Available particulars:', dataRows.slice(0, 20).map(r => normStr(r[partCol])));
+      console.error('[Process] No required metrics found in data');
+      console.error('[Process] Available particulars (first 30):');
+      const availableParticulars = dataRows.slice(0, 30).map(r => normStr(r[partCol])).filter(p => p);
+      console.error(availableParticulars);
+      console.error('[Process] Required metrics are:', requiredMetrics);
       return [];
     }
     
@@ -248,8 +259,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
     }
     
     if (outletBlocks.length === 0) {
-      console.log('[Process] No Month-% pairs detected');
-      console.log('[Process] Header columns:', headerRowData.slice(partCol, partCol + 20));
+      console.error('[Process] No Month-% pairs detected');
+      console.error('[Process] Header row content:', headerRowData);
+      console.error('[Process] Columns after particulars (first 20):', headerRowData.slice(partCol, partCol + 20));
+      console.error('[Process] Looking for patterns like: "June-25" followed by "%"');
       return [];
     }
     
