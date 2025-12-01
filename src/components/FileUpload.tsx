@@ -46,12 +46,18 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
 
   const processWithBackend = async (file: File) => {
     try {
+      // Vercel serverless function payload limit is 4.5MB
+      if (file.size > 4.5 * 1024 * 1024) {
+        throw new Error('File too large for backend processing (max 4.5MB). Using frontend fallback.');
+      }
+
       const formData = new FormData();
       formData.append('file', file);
 
       console.log('[Backend] Attempting to connect to:', BACKEND_URL);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 25000);
+      // Match Vercel's maxDuration of 60s
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
 
       const response = await fetch(`${BACKEND_URL}/process-file`, {
         method: 'POST',
@@ -510,8 +516,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
 
         <div
           className={`relative border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 ${isDragOver
-              ? 'border-primary bg-primary/5 shadow-glow'
-              : 'border-border hover:border-primary/50 hover:bg-primary/5'
+            ? 'border-primary bg-primary/5 shadow-glow'
+            : 'border-border hover:border-primary/50 hover:bg-primary/5'
             }`}
           onDrop={handleDrop}
           onDragOver={(e) => {
