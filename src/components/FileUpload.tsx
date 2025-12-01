@@ -632,20 +632,20 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
             outletName.toLowerCase().includes('consolidated')) continue;
         
         // Extract all available financial metrics (handle variable column positions)
-        const directIncome = parseFloat(row[3]) || 0;
-        const totalRevenue = parseFloat(row[4]) || 0;
-        const cogs = parseFloat(row[5]) || 0;
-        const outletExpenses = parseFloat(row[6]) || 0;
-        const ebitda = parseFloat(row[7]) || 0;
-        const financeCost = parseFloat(row[8]) || 0;
-        const pbt = parseFloat(row[9]) || 0;
-        const wastage = parseFloat(row[10]) || 0;
+        const directIncome = cleanNumber(row[3]);
+        const totalRevenue = cleanNumber(row[4]);
+        const cogs = cleanNumber(row[5]);
+        const outletExpenses = cleanNumber(row[6]);
+        const ebitda = cleanNumber(row[7]);
+        const financeCost = cleanNumber(row[8]);
+        const pbt = cleanNumber(row[9]);
+        const wastage = cleanNumber(row[10]);
         
         // Additional interest-related metrics if available
-        const bankCharges = parseFloat(row[11]) || 0;
-        const interestOnBorrowings = parseFloat(row[12]) || 0;
-        const interestOnVehicleLoan = parseFloat(row[13]) || 0;
-        const mg = parseFloat(row[14]) || 0;
+        const bankCharges = cleanNumber(row[11]);
+        const interestOnBorrowings = cleanNumber(row[12]);
+        const interestOnVehicleLoan = cleanNumber(row[13]);
+        const mg = cleanNumber(row[14]);
         
         // Create a comprehensive record per outlet
         const outletRecord = {
@@ -800,8 +800,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         // Pattern 1: Every 3rd column (amount, percentage, blank)
         let cashierIndex = 0;
         for (let colIndex = 1; colIndex < row.length && cashierIndex < cashierNames.length; colIndex += 3) {
-          const amount = parseFloat(row[colIndex]) || 0;
-          const percentage = parseFloat(row[colIndex + 1]) || 0;
+          const amount = cleanNumber(row[colIndex]);
+          const percentage = cleanNumber(row[colIndex + 1]);
           
           if (amount !== 0 || percentage !== 0) {
             dataFound = true;
@@ -842,7 +842,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         // Pattern 2: If pattern 1 didn't work, try sequential columns
         if (!dataFound && row.length > 2) {
           for (let colIndex = 1; colIndex < Math.min(row.length, cashierNames.length + 1); colIndex++) {
-            const amount = parseFloat(row[colIndex]) || 0;
+            const amount = cleanNumber(row[colIndex]);
             if (amount !== 0) {
               dataFound = true;
               processedData.push({
