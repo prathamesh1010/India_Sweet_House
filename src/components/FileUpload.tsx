@@ -325,27 +325,41 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       
       // Find header row (contains "Particulars" or month patterns)
       let headerRowIndex = -1;
+      let particularsColIndex = 0;
       const monthPattern = /^[A-Za-z]+-\d{2}$/;
       
-      for (let i = 0; i < Math.min(10, rawData.length); i++) {
+      // Scan first 20 rows and all columns for "Particulars"
+      for (let i = 0; i < Math.min(20, rawData.length); i++) {
         const row = rawData[i];
         if (!row) continue;
         
-        const firstCell = row[0]?.toString().toLowerCase() || '';
-        if (firstCell.includes('particular')) {
-          headerRowIndex = i;
-          console.log(`[processOutletWiseWorksheet] Found 'Particulars' at row ${i}`);
-          break;
+        // Check all cells in the row
+        for (let j = 0; j < Math.min(5, row.length); j++) {
+          const cell = row[j]?.toString().toLowerCase() || '';
+          if (cell.includes('particular')) {
+            headerRowIndex = i;
+            particularsColIndex = j;
+            console.log(`[processOutletWiseWorksheet] Found 'Particulars' at row ${i}, col ${j}`);
+            break;
+          }
         }
-        
-        // Alternative: look for month patterns in row
-        const hasMonthPattern = row.some(cell => 
-          cell && monthPattern.test(cell.toString().trim())
-        );
-        if (hasMonthPattern) {
-          headerRowIndex = Math.max(0, i - 1);
-          console.log(`[processOutletWiseWorksheet] Found month pattern at row ${i}, using header row ${headerRowIndex}`);
-          break;
+        if (headerRowIndex !== -1) break;
+      }
+      
+      // Fallback: look for month patterns if "Particulars" not found
+      if (headerRowIndex === -1) {
+        for (let i = 0; i < Math.min(20, rawData.length); i++) {
+          const row = rawData[i];
+          if (!row) continue;
+          
+          const hasMonthPattern = row.some(cell => 
+            cell && monthPattern.test(cell.toString().trim())
+          );
+          if (hasMonthPattern) {
+            headerRowIndex = Math.max(0, i - 1);
+            console.log(`[processOutletWiseWorksheet] Found month pattern at row ${i}, using header row ${headerRowIndex}`);
+            break;
+          }
         }
       }
       
@@ -355,6 +369,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       }
       
       // Extract outlet names and managers from rows above header
+      // Adjust for particularsColIndex if needed (though usually outlets are to the right)
       const outletRow = headerRowIndex > 0 ? rawData[headerRowIndex - 1] : [];
       const managerRow = headerRowIndex > 2 ? rawData[headerRowIndex - 3] : [];
       
@@ -371,8 +386,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       const outlets: Array<{index: number, name: string, manager: string, month: string}> = [];
       
       // Find Month-% column pairs (every outlet has Month and % columns)
-      // Also support simpler formats where columns are just outlets
-      for (let colIdx = 1; colIdx < (headerRow?.length || 0); colIdx++) {
+      // Start scanning from particularsColIndex + 1
+      for (let colIdx = particularsColIndex + 1; colIdx < (headerRow?.length || 0); colIdx++) {
         const cellValue = headerRow[colIdx]?.toString().trim() || '';
         const nextCellValue = headerRow[colIdx + 1]?.toString().trim() || '';
         
@@ -401,12 +416,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         console.log('[processOutletWiseWorksheet] Strict pattern failed, trying loose column detection');
         
         // Look for the "TOTAL REVENUE" row to see which columns have numbers
+        // Use particularsColIndex to find the metric name
         const revenueRow = rawData.find(row => 
-          row && row[0] && row[0].toString().toLowerCase().includes('total revenue')
+          row && row[particularsColIndex] && row[particularsColIndex].toString().toLowerCase().includes('total revenue')
         );
         
         if (revenueRow) {
-          for (let colIdx = 1; colIdx < revenueRow.length; colIdx++) {
+          for (let colIdx = particularsColIndex + 1; colIdx < revenueRow.length; colIdx++) {
             const val = parseFloat(revenueRow[colIdx]);
             // If it's a number and not a percentage (usually percentages are small < 1 or > 100 depending on format, but revenue is usually large)
             // Or just take every column that looks like a number
@@ -448,6 +464,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       for (const outlet of outlets) {
         const outletData: any = {
           'Outlet': outlet.name,
+
           'Outlet Name': outlet.name,
           'Outlet Manager': outlet.manager,
           'Month': outlet.month || currentDate,
