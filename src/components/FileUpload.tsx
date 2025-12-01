@@ -25,19 +25,33 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
       const formData = new FormData();
       formData.append('file', file);
 
+      console.log('[FileUpload] Attempting backend processing at:', BACKEND_URL);
+
+      // Add timeout to backend request (5 seconds)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
       const response = await fetch(`${BACKEND_URL}/process-file`, {
         method: 'POST',
         body: formData,
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`Backend API error: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
+      console.log('[FileUpload] Backend processing successful');
       return result;
-    } catch (error) {
-      console.error('Backend processing error:', error);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.warn('[FileUpload] Backend request timeout - using frontend fallback');
+      } else {
+        console.warn('[FileUpload] Backend processing error:', error.message);
+      }
       throw error;
     }
   };
@@ -74,10 +88,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
 
   const processExcelFile = useCallback(async (file: File) => {
     try {
+      console.log('[FileUpload] Processing Excel file:', file.name);
+      
       // Try backend processing first for Excel files
       try {
         const backendResult = await processWithBackend(file);
         if (backendResult.success) {
+          console.log('[FileUpload] Backend returned', backendResult.data?.length || 0, 'records');
           setUploadedFiles(prev => [...prev, file.name]);
           onFileUpload(backendResult.data, file.name);
           setIsProcessing(false);
@@ -88,12 +105,14 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
           }
           return;
         } else {
-          console.warn('Backend processing failed, falling back to frontend:', backendResult.error);
+          console.warn('[FileUpload] Backend processing failed, falling back to frontend:', backendResult.error);
         }
       } catch (backendError) {
-        console.warn('Backend not available, using frontend processing:', backendError);
+        console.warn('[FileUpload] Backend not available, using frontend processing');
       }
 
+      console.log('[FileUpload] Starting frontend fallback processing');
+      
       // Frontend fallback processing
       const reader = new FileReader();
       
@@ -104,7 +123,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
             throw new Error('No data received from file');
           }
           
+          console.log('[FileUpload] Reading Excel workbook...');
           const workbook = XLSX.read(data, { type: 'array' });
+          console.log('[FileUpload] Found sheets:', workbook.SheetNames);
           
           // Check if there's an "Outlet wise" worksheet
           const outletWiseSheet = workbook.SheetNames.find(name => 
@@ -114,33 +135,45 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
           let rawData: any[][];
           
           if (outletWiseSheet) {
-            console.log(`Processing multi-worksheet file, using sheet: ${outletWiseSheet}`);
+            console.log(`[FileUpload] Processing multi-worksheet file, using sheet: ${outletWiseSheet}`);
             const worksheet = workbook.Sheets[outletWiseSheet];
             rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null, raw: false });
           } else {
             // Use first sheet
             const sheetName = workbook.SheetNames[0];
+            console.log(`[FileUpload] Using first sheet: ${sheetName}`);
             const worksheet = workbook.Sheets[sheetName];
             rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null, raw: false });
           }
           
+          console.log(`[FileUpload] Extracted ${rawData.length} rows from Excel`);
+          console.log('[FileUpload] First 3 rows:', rawData.slice(0, 3));
+          
           const processedData = await processFinancialReport(rawData, file.name);
           
+          console.log(`[FileUpload] Processed ${processedData.length} records`);
+          
           if (processedData.length > 0) {
+            console.log('[FileUpload] Sample processed record:', processedData[0]);
             setUploadedFiles(prev => [...prev, file.name]);
             onFileUpload(processedData, file.name);
             setIsProcessing(false);
           } else {
-            setError('Could not extract meaningful data from the financial report. Please check the file format.');
+            const errorMsg = 'Could not extract meaningful data from the financial report. Please check the file format.';
+            console.error('[FileUpload]', errorMsg);
+            setError(errorMsg);
             setIsProcessing(false);
           }
         } catch (err: any) {
-          setError(`Error processing financial report: ${err.message}`);
+          const errorMsg = `Error processing financial report: ${err.message}`;
+          console.error('[FileUpload]', errorMsg, err);
+          setError(errorMsg);
           setIsProcessing(false);
         }
       };
       
       reader.onerror = () => {
+        console.error('[FileUpload] Error reading Excel file');
         setError('Error reading Excel file.');
         setIsProcessing(false);
       };
@@ -203,11 +236,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
 
   const processFinancialReport = async (rawData: any[][], filename: string) => {
     try {
+      console.log('[processFinancialReport] Starting with', rawData.length, 'rows');
+      
       // First check if this looks like an "Outlet wise" worksheet (metrics in rows, outlets in columns)
       const isOutletWiseFormat = detectOutletWiseFormat(rawData);
       
       if (isOutletWiseFormat) {
-        console.log('Detected Outlet wise format (transposed data)');
+        console.log('[processFinancialReport] Detected Outlet wise format (transposed data)');
         return processOutletWiseWorksheet(rawData, filename);
       }
       
@@ -225,12 +260,20 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
           cell?.toString().toLowerCase().includes('pbt')
         );
 
+        console.log('[processFinancialReport] Format detection:', {
+          hasOutletColumn,
+          hasOutletManagerColumn,
+          hasFinancialMetrics
+        });
+
         if (hasOutletColumn && hasOutletManagerColumn && hasFinancialMetrics) {
+          console.log('[processFinancialReport] Using outlet-based report processing');
           return processOutletBasedReport(rawData, filename);
         }
       }
 
       // Fallback to original cashier-based processing
+      console.log('[processFinancialReport] Using cashier-based report processing');
       return processCashierBasedReport(rawData, filename);
     } catch (error) {
       console.error('Error in processFinancialReport:', error);
@@ -276,6 +319,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
 
   const processOutletWiseWorksheet = async (rawData: any[][], filename: string) => {
     try {
+      console.log('[processOutletWiseWorksheet] Starting processing');
       const processedData: any[] = [];
       const currentDate = new Date().toISOString().split('T')[0];
       
@@ -290,6 +334,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         const firstCell = row[0]?.toString().toLowerCase() || '';
         if (firstCell.includes('particular')) {
           headerRowIndex = i;
+          console.log(`[processOutletWiseWorksheet] Found 'Particulars' at row ${i}`);
           break;
         }
         
@@ -299,11 +344,15 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         );
         if (hasMonthPattern) {
           headerRowIndex = Math.max(0, i - 1);
+          console.log(`[processOutletWiseWorksheet] Found month pattern at row ${i}, using header row ${headerRowIndex}`);
           break;
         }
       }
       
-      if (headerRowIndex === -1) headerRowIndex = 0;
+      if (headerRowIndex === -1) {
+        console.log('[processOutletWiseWorksheet] No header found, using row 0');
+        headerRowIndex = 0;
+      }
       
       // Extract outlet names and managers from rows above header
       const outletRow = headerRowIndex > 0 ? rawData[headerRowIndex - 1] : [];
@@ -342,7 +391,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         }
       }
       
-      console.log(`Found ${outlets.length} outlets`);
+      console.log(`[processOutletWiseWorksheet] Found ${outlets.length} outlets`);
+      
+      if (outlets.length === 0) {
+        console.warn('[processOutletWiseWorksheet] No outlets found in expected format');
+        // Return empty array to try other processors
+        return [];
+      }
       
       // Extract data for each outlet
       for (const outlet of outlets) {
@@ -410,6 +465,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
         }
         
         processedData.push(outletData);
+      }
+      
+      console.log(`[processOutletWiseWorksheet] Processed ${processedData.length} outlet records`);
+      if (processedData.length > 0) {
+        console.log('[processOutletWiseWorksheet] Sample record:', processedData[0]);
       }
       
       return processedData;
