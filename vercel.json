@@ -6,6 +6,7 @@
   "installCommand": "npm install",
   "functions": {
     "api/backend.py": {
+      "runtime": "python3.9",
       "maxDuration": 60
     }
   },
