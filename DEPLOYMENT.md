@@ -60,11 +60,27 @@ Set `VITE_BACKEND_URL=http://localhost:5000` in `.env.local` for the frontend wh
 └── .env.example            # Environment variable template
 ```
 
+## Testing Before Deployment
+
+Before deploying, test locally that the serverless function structure works:
+
+```bash
+# Test imports and routes
+python test_vercel_import.py
+```
+
+This verifies:
+- All imports work correctly
+- Flask app routes are configured
+- Dependencies are installed
+
 ## Testing Deployment
 
-1. Visit your Vercel URL
-2. Upload an Excel file
-3. Confirm records succeed (check browser console and Vercel function logs if needed)
+1. Visit your Vercel URL (e.g., `https://your-app.vercel.app`)
+2. Test health endpoint: `https://your-app.vercel.app/health`
+3. Upload an Excel file through the UI
+4. Check browser console (F12) for any errors
+5. Check Vercel Function logs in dashboard if issues occur
 
 ## Troubleshooting
 

@@ -30,17 +30,32 @@ app = Flask(__name__)
 # Enable CORS for frontend communication
 # In production, specify allowed origins
 allowed_origins = os.environ.get('ALLOWED_ORIGINS', '*').split(',')
-CORS(app, origins=allowed_origins if allowed_origins != ['*'] else '*')
+# Clean up empty strings from split
+allowed_origins = [origin.strip() for origin in allowed_origins if origin.strip()]
+
+if allowed_origins == ['*'] or '*' in allowed_origins:
+    CORS(app, origins='*', supports_credentials=True)
+else:
+    CORS(app, origins=allowed_origins, supports_credentials=True)
 
 # Configuration
+# Use /tmp for serverless environments (Vercel, AWS Lambda, etc.)
+# Detect serverless environment
+IS_SERVERLESS = os.environ.get('VERCEL') or os.environ.get('AWS_LAMBDA_FUNCTION_NAME') or os.environ.get('FUNCTION_TARGET')
+
 UPLOAD_FOLDER = os.environ.get(
     'UPLOAD_FOLDER',
-    os.path.join(tempfile.gettempdir(), 'uploads') if os.environ.get('VERCEL') else 'uploads'
+    os.path.join(tempfile.gettempdir(), 'uploads') if IS_SERVERLESS else 'uploads'
 )
 ALLOWED_EXTENSIONS = {'xlsx', 'xls', 'csv'}
 
 # Create upload directory if it doesn't exist
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+try:
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+except Exception as e:
+    print(f"[WARNING] Could not create upload directory: {e}")
+    # Fallback to system temp directory
+    UPLOAD_FOLDER = tempfile.gettempdir()
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -779,7 +794,12 @@ def process_financial_data(file_path):
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    return jsonify({"status": "healthy", "message": "Backend API is running"})
+    return jsonify({
+        "status": "healthy", 
+        "message": "Backend API is running",
+        "environment": "serverless" if IS_SERVERLESS else "local",
+        "upload_folder": UPLOAD_FOLDER
+    })
 
 @app.route('/process-file', methods=['POST'])
 def process_file():
@@ -808,7 +828,15 @@ def process_file():
         # Save uploaded file temporarily
         filename = secure_filename(file.filename)
         temp_path = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(temp_path)
+        
+        try:
+            file.save(temp_path)
+        except Exception as save_error:
+            return jsonify({
+                "success": False,
+                "error": f"Failed to save file: {str(save_error)}",
+                "upload_folder": UPLOAD_FOLDER
+            }), 500
 
         try:
             # Process the file using our backend logic

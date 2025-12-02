@@ -19,7 +19,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, className 
   const backendEnv = import.meta.env.VITE_BACKEND_URL?.toString().trim();
   const BACKEND_URL = (backendEnv && backendEnv !== '')
     ? backendEnv.replace(/\/$/, '')
-    : '';
+    : '/api/backend';
 
   // Helper to normalize strings (remove NBSP, zero-width chars, collapse whitespace)
   const normStr = (x: any): string => {
